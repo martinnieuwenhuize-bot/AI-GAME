@@ -8,9 +8,9 @@
 <style>
 body {
   margin:0;
-  font-family:Arial;
-  background:#111;
-  color:#eee;
+  background:#0c0906;
+  color:#e8dcc8;
+  font-family:serif;
 }
 
 #app {
@@ -23,29 +23,39 @@ body {
 
 #title-screen, #game-screen {
   padding:20px;
+  flex:1;
+  display:flex;
+  flex-direction:column;
 }
 
 #game-screen { display:none; }
 
-#story-area {
+#story {
   flex:1;
   overflow-y:auto;
   margin-bottom:10px;
 }
 
-#choices-area {
-  max-height:40vh;
+#choices {
+  max-height:30vh;
   overflow-y:auto;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+}
+
+input, button {
+  padding:10px;
+  margin-top:5px;
+  font-size:14px;
 }
 
 button {
-  padding:12px;
-  background:#222;
-  border:1px solid #444;
-  color:white;
+  background:#1a1410;
+  border:1px solid #2e2318;
+  color:#fff;
+  cursor:pointer;
+}
+
+button.selected {
+  border:1px solid #c9922a;
 }
 </style>
 </head>
@@ -54,61 +64,207 @@ button {
 
 <div id="app">
 
+<!-- TITLE -->
 <div id="title-screen">
   <h1>Realm of Ash</h1>
-  <input id="name" placeholder="Enter your name">
-  <br><br>
-  <button onclick="startGame()">Start</button>
+
+  <input id="name" placeholder="Your name">
+  <input id="appearance" placeholder="Describe how you look">
+
+  <h3>Choose Class</h3>
+  <div id="class-select">
+    <button onclick="selectClass(this,'Fighter')">Fighter ⚔️</button>
+    <button onclick="selectClass(this,'Cleric')">Cleric ✝️</button>
+    <button onclick="selectClass(this,'Rogue')">Rogue 🗡️</button>
+    <button onclick="selectClass(this,'Mage')">Mage 🔮</button>
+  </div>
+
+  <button onclick="startGame()">Begin</button>
+  <button onclick="loadGame()">Load Save</button>
 </div>
 
+<!-- GAME -->
 <div id="game-screen">
-  <div id="story-area"></div>
-  <div id="choices-area"></div>
+  <div id="story"></div>
+  <div id="choices"></div>
+
+  <input id="input" placeholder="Type anything..."
+    onkeydown="if(event.key==='Enter')doAction()">
+  <button onclick="doAction()">Do it</button>
+
+  <button onclick="saveGame()">💾 Save Game</button>
 </div>
 
 </div>
 
 <script>
-function startGame() {
-  console.log("START CLICKED"); // debug check
 
-  const name = document.getElementById("name").value || "Hero";
+let player = {
+  name:"Hero",
+  class:"Fighter",
+  appearance:"an unknown figure",
+  hp:100,
+  mp:50
+};
 
-  document.getElementById("title-screen").style.display = "none";
-  document.getElementById("game-screen").style.display = "block";
+let storyLog = [];
 
-  writeStory("You wake on a ruined road, " + name + ".");
-  showChoices(["Look around", "Walk forward", "Run"]);
+// CLASS SELECT
+function selectClass(btn, cls) {
+  player.class = cls;
+  document.querySelectorAll("#class-select button")
+    .forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
 }
 
-function writeStory(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
+// START GAME
+function startGame(){
+  player.name = document.getElementById("name").value || "Hero";
+  player.appearance = document.getElementById("appearance").value || "an unremarkable figure";
 
-  const area = document.getElementById("story-area");
+  if(player.class==="Fighter"){ player.hp=120; player.mp=30; }
+  if(player.class==="Cleric"){ player.hp=100; player.mp=80; }
+  if(player.class==="Rogue"){ player.hp=90; player.mp=50; }
+  if(player.class==="Mage"){ player.hp=70; player.mp=120; }
+
+  document.getElementById("title-screen").style.display="none";
+  document.getElementById("game-screen").style.display="flex";
+
+  addStory(`You are ${player.name}, a ${player.class}, ${player.appearance}. The world burns.`);
+  suggestChoices(["look around","move forward","call out"]);
+}
+
+// STORY DISPLAY
+function addStory(text){
+  const div=document.createElement("div");
+  div.textContent=text;
+
+  const area=document.getElementById("story");
   area.appendChild(div);
-  area.scrollTop = area.scrollHeight;
+  area.scrollTop=area.scrollHeight;
+
+  storyLog.push(text);
 }
 
-function showChoices(list) {
-  const area = document.getElementById("choices-area");
-  area.innerHTML = "";
+// CHOICES
+function suggestChoices(list){
+  const box=document.getElementById("choices");
+  box.innerHTML="";
 
-  list.forEach(choice => {
-    const btn = document.createElement("button");
-    btn.textContent = choice;
-    btn.onclick = () => selectChoice(choice);
-    area.appendChild(btn);
+  list.forEach(t=>{
+    const btn=document.createElement("button");
+    btn.textContent=t;
+    btn.onclick=()=>processAction(t);
+    box.appendChild(btn);
   });
 }
 
-function selectChoice(choice) {
-  writeStory("> " + choice);
+// INPUT
+function doAction(){
+  const input=document.getElementById("input");
+  const text=input.value.trim();
+  if(!text) return;
 
-  writeStory("Something happens...");
-
-  showChoices(["Go again", "Do something else"]);
+  input.value="";
+  processAction(text);
 }
+
+// ACTION PROCESS
+function processAction(action){
+  addStory("> " + action);
+
+  let response = generateResponse(action.toLowerCase());
+
+  addStory(response.text);
+  suggestChoices(response.choices);
+}
+
+// RESPONSE ENGINE
+function generateResponse(action){
+
+  let classBonus = "";
+  let appearanceBonus = "";
+
+  if(player.class==="Fighter") classBonus = " Your combat instincts sharpen.";
+  if(player.class==="Mage") classBonus = " Magic crackles faintly.";
+  if(player.class==="Rogue") classBonus = " You move like a shadow.";
+  if(player.class==="Cleric") classBonus = " A divine warmth lingers.";
+
+  if(Math.random() > 0.5){
+    appearanceBonus = ` Your look (${player.appearance}) draws attention.`;
+  }
+
+  if(action.includes("look")){
+    return {
+      text:"The land is silent and dead." + classBonus + appearanceBonus,
+      choices:["approach","hide","scan horizon"]
+    };
+  }
+
+  if(action.includes("attack") || action.includes("fight")){
+    return {
+      text:"You strike with force." + classBonus,
+      choices:["attack again","back off","dodge"]
+    };
+  }
+
+  if(action.includes("run")){
+    return {
+      text:"You run through ash and ruin." + appearanceBonus,
+      choices:["stop","keep running","hide"]
+    };
+  }
+
+  const random = [
+    "A distant scream echoes.",
+    "Shadows twist nearby.",
+    "The wind carries whispers.",
+    "You feel watched."
+  ];
+
+  return {
+    text: random[Math.floor(Math.random()*random.length)] + classBonus + appearanceBonus,
+    choices:["look around","move forward","stay still"]
+  };
+}
+
+// SAVE SYSTEM
+function saveGame(){
+  const saveData = {
+    player,
+    storyLog
+  };
+  localStorage.setItem("realmSave", JSON.stringify(saveData));
+  alert("Game Saved ✅");
+}
+
+// LOAD SYSTEM
+function loadGame(){
+  const save = localStorage.getItem("realmSave");
+  if(!save){
+    alert("No save found");
+    return;
+  }
+
+  const data = JSON.parse(save);
+  player = data.player;
+  storyLog = data.storyLog;
+
+  document.getElementById("title-screen").style.display="none";
+  document.getElementById("game-screen").style.display="flex";
+
+  const storyArea = document.getElementById("story");
+  storyArea.innerHTML="";
+
+  storyLog.forEach(line=>{
+    const div=document.createElement("div");
+    div.textContent=line;
+    storyArea.appendChild(div);
+  });
+
+  suggestChoices(["continue","look around","move"]);
+}
+
 </script>
 
 </body>
