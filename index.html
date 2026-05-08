@@ -11,11 +11,8 @@ body{margin:0;background:#0c0906;color:#e8dcc8;font-family:serif;}
 #title,#game{padding:20px;flex:1;display:flex;flex-direction:column;}
 #game{display:none;}
 #story{flex:1;overflow-y:auto;}
-#choices{max-height:20vh;overflow-y:auto;}
-button,input{padding:10px;margin-top:5px;}
-button{background:#1a1410;border:1px solid #2e2318;color:white;}
-button.selected{border:2px solid gold;}
-img{width:100%;margin-bottom:10px;border-radius:6px;}
+input,button{padding:10px;margin-top:5px;}
+img{width:100%;border-radius:6px;margin-bottom:10px;}
 </style>
 </head>
 
@@ -25,29 +22,25 @@ img{width:100%;margin-bottom:10px;border-radius:6px;}
 
 <div id="title">
 <h1>Realm of Ash</h1>
+
 <input id="name" placeholder="Name">
 <input id="appearance" placeholder="Describe yourself">
-
-<h3>Class</h3>
-<div id="class-select">
-<button onclick="setClass(this,'Fighter')">Fighter</button>
-<button onclick="setClass(this,'Rogue')">Rogue</button>
-<button onclick="setClass(this,'Mage')">Mage</button>
-<button onclick="setClass(this,'Cleric')">Cleric</button>
-</div>
+<select id="class">
+<option>Fighter</option>
+<option>Mage</option>
+<option>Rogue</option>
+<option>Cleric</option>
+</select>
 
 <button onclick="start()">Begin</button>
-<button onclick="load()">Load</button>
 </div>
 
 <div id="game">
-<img id="img" style="display:none;">
+<img id="img">
 <div id="story"></div>
-<div id="choices"></div>
 
 <input id="input" placeholder="Type anything..." onkeydown="if(event.key==='Enter')act()">
-<button onclick="act()">Do it</button>
-<button onclick="save()">💾 Save</button>
+<button onclick="act()">Do</button>
 
 <div id="stats"></div>
 </div>
@@ -58,38 +51,37 @@ img{width:100%;margin-bottom:10px;border-radius:6px;}
 
 // ---------- PLAYER ----------
 let player={
-name:"Hero",
-class:"Fighter",
-appearance:"",
-location:"road",
-level:1,
+name:"",
+class:"",
+location:"town",
+hp:100,
 xp:0,
-factions:{
-town:0,
-outlaw:0,
-ranger:0
-}
+rep:0
 };
 
-// ---------- QUESTS ----------
-let quests={
-beast:{started:false,completed:false,path:null},
-bandit:{started:false,completed:false,path:null}
+// ---------- GLOBAL WORLD STATE ----------
+let worldState={
+events:[],
+deadNPCs:[],
+townState:"normal" // normal, fearful, hostile, friendly
+};
+
+// ---------- LOCATIONS ----------
+let locations={
+town:{desc:"a small frontier town",npc:"borin",exits:["forest"]},
+forest:{desc:"a dark forest",npc:"hunter",exits:["town"]}
 };
 
 // ---------- NPC ----------
 let npcs={
-Borin:{memory:[],faction:"town"},
-Hunter:{memory:[],faction:"ranger"},
-Bandit:{memory:[],faction:"outlaw"}
+borin:{mood:0,alive:true},
+hunter:{mood:0,alive:true}
 };
 
-let log=[];
 let enemy=null;
 
 // ---------- UI ----------
 function narrate(t){
-log.push(t);
 let d=document.createElement("div");
 d.textContent=t;
 story.appendChild(d);
@@ -97,160 +89,149 @@ story.scrollTop=story.scrollHeight;
 }
 
 function showImg(){
-img.style.display="block";
-img.src=`https://image.pollinations.ai/prompt/${player.location} fantasy?seed=${Date.now()}`;
+img.src=`https://image.pollinations.ai/prompt/${player.location} fantasy`;
 }
 
 // ---------- START ----------
-function setClass(btn,c){
-player.class=c;
-document.querySelectorAll("#class-select button")
-.forEach(b=>b.classList.remove("selected"));
-btn.classList.add("selected");
-}
-
 function start(){
 player.name=name.value||"Hero";
-player.appearance=appearance.value||"unknown";
+player.class=document.getElementById("class").value;
 
 title.style.display="none";
 game.style.display="flex";
 
 showImg();
-narrate(`You are ${player.name}, a ${player.class}, ${player.appearance}.`);
+narrate(`You are ${player.name}, a ${player.class}.`);
 
-showChoices(["look around","move"]);
 updateStats();
 }
 
-// ---------- ACTION ----------
+// ---------- INPUT ----------
 function act(){
-let t=input.value.trim();
-if(!t) return;
+let text=input.value.toLowerCase();
 input.value="";
-process(t);
+process(text);
 }
 
-function process(action){
+// ---------- MAIN ----------
+function process(text){
 
-narrate("> "+action);
+narrate("> "+text);
 
-if(enemy){combat(action); return;}
+if(enemy){combat(text); return;}
 
-handleMovement(action);
-handleNPC(action);
-handleQuests(action);
-updateWorld();
+trackWorldEvents(text);
+handleMovement(text);
+handleNPC(text);
+updateWorldState();
 
-narrate(describe(action));
+narrate(generateStory(text));
 
-showChoices(getChoices());
 updateStats();
+}
+
+// ---------- TRACK EVENTS ----------
+function trackWorldEvents(text){
+
+if(text.includes("kill")){
+worldState.events.push("violence");
+player.rep--;
+}
+
+if(text.includes("help")){
+worldState.events.push("kindness");
+player.rep++;
+}
+
+if(text.includes("threat")){
+worldState.events.push("threat");
+player.rep--;
+}
+
 }
 
 // ---------- MOVEMENT ----------
-let locations={
-road:{desc:"a dusty road",exits:["town","forest"]},
-town:{desc:"a guarded town",exits:["road","tavern"]},
-tavern:{desc:"a lively tavern",npc:"Borin"},
-forest:{desc:"a shadowy forest",npc:"Hunter"}
-};
-
-function handleMovement(a){
-a=a.toLowerCase();
+function handleMovement(text){
 
 let exits=locations[player.location].exits||[];
 exits.forEach(dest=>{
-if(a.includes(dest)){
+if(text.includes(dest)){
 player.location=dest;
 showImg();
+narrate(`You travel to ${dest}.`);
 }
 });
+
 }
 
 // ---------- NPC ----------
-function handleNPC(a){
-let loc=locations[player.location];
-if(!loc.npc) return;
+function handleNPC(text){
 
-let npc=npcs[loc.npc];
+let npcName=locations[player.location].npc;
+if(!npcName) return;
 
-if(a.includes("talk")){
-let mem=npc.memory.join(", ")||"nothing";
-narrate(`${loc.npc} eyes you carefully. They remember: ${mem}`);
+let npc=npcs[npcName];
+
+// NPC dead check
+if(!npc.alive){
+narrate(`${npcName} is gone. Permanently.`);
+return;
 }
 
-if(a.includes("attack")){
-npc.memory.push("attacked you");
-startCombat(loc.npc);
+// talking
+if(text.includes("talk")){
+let reaction=getNPCReaction(npc);
+narrate(`${npcName}: ${reaction}`);
 }
 
-if(a.includes("help")){
-npc.memory.push("you helped them");
-player.factions[npc.faction]++;
-}
-}
-
-// ---------- QUESTS ----------
-function handleQuests(a){
-
-// Beast quest
-if(player.location==="tavern" && a.includes("talk") && !quests.beast.started){
-quests.beast.started=true;
-narrate("Borin asks you to deal with the beast in the forest.");
+// attack
+if(text.includes("attack")){
+startCombat(npcName);
 }
 
-if(player.location==="forest" && quests.beast.started && !quests.beast.completed){
-
-if(a.includes("kill beast")){
-quests.beast.completed=true;
-quests.beast.path="kill";
-player.factions.town++;
-
-narrate("You kill the beast violently.");
-}
-
-if(a.includes("spare beast")){
-quests.beast.completed=true;
-quests.beast.path="spare";
-player.factions.ranger++;
-
-narrate("You spare the beast.");
+// kill
+if(text.includes("kill") && enemy){
+npc.alive=false;
+worldState.deadNPCs.push(npcName);
+narrate(`${npcName} is dead. This will be remembered.`);
 }
 
 }
 
-// Bandit quest
-if(player.location==="road" && a.includes("investigate") && !quests.bandit.started){
-quests.bandit.started=true;
-narrate("You discover bandit activity nearby.");
+// ---------- NPC REACTIONS ----------
+function getNPCReaction(npc){
+
+if(player.rep>2) return "People here trust you.";
+if(player.rep<-2) return "They seem afraid of you.";
+
+switch(worldState.townState){
+case "hostile": return "They glare at you with hostility.";
+case "fearful": return "They seem nervous around you.";
+case "friendly": return "They greet you warmly.";
 }
 
-if(a.includes("join bandits")){
-quests.bandit.completed=true;
-quests.bandit.path="join";
-player.factions.outlaw++;
-narrate("You side with the bandits.");
+return "They watch you cautiously.";
 }
 
-if(a.includes("fight bandits")){
-quests.bandit.completed=true;
-quests.bandit.path="fight";
-player.factions.town++;
-narrate("You defeat the bandits.");
+// ---------- WORLD EVOLUTION ----------
+function updateWorldState(){
+
+let evil=worldState.events.filter(e=>e==="violence").length;
+let good=worldState.events.filter(e=>e==="kindness").length;
+
+if(evil>3){
+worldState.townState="hostile";
+locations.town.desc="a hostile town where guards track your movements";
 }
 
+else if(evil>1){
+worldState.townState="fearful";
+locations.town.desc="a nervous town where people whisper about you";
 }
 
-// ---------- WORLD REACTION ----------
-function updateWorld(){
-
-if(player.factions.town>2){
-locations.town.desc="a welcoming town where guards trust you";
-}
-
-if(player.factions.outlaw>2){
-narrate("Word spreads… outlaws recognise you as one of their own.");
+if(good>2){
+worldState.townState="friendly";
+locations.town.desc="a welcoming town where people trust you";
 }
 
 }
@@ -261,105 +242,56 @@ enemy={name:name,hp:30};
 narrate(`⚔ ${name} attacks!`);
 }
 
-function combat(a){
+function combat(text){
 
-if(a.includes("attack")){
+if(text.includes("attack")){
 enemy.hp-=10;
 narrate("You strike.");
 }
 
-if(enemy.hp<=0){
-narrate(`${enemy.name} defeated`);
+if(text.includes("run")){
 enemy=null;
-player.xp+=10;
-levelUp();
-}
+narrate("You escape.");
+return;
 }
 
-// ---------- LEVEL ----------
-function levelUp(){
-if(player.xp>=player.level*20){
-player.level++;
-narrate("🔥 Level up");
+if(enemy.hp<=0){
+narrate(`${enemy.name} defeated.`);
+enemy=null;
+player.xp+=10;
+return;
 }
+
+player.hp-=5;
+narrate(`${enemy.name} hits you.`);
 }
 
 // ---------- STORY ----------
-function describe(a){
-let loc=locations[player.location];
-return `You ${a}. You are in ${loc.desc}.`;
-}
-
-// ---------- CHOICES ----------
-function getChoices(){
-
-if(enemy) return ["attack","run"];
+function generateStory(text){
 
 let loc=locations[player.location];
 
-let base=["look","move"];
+let worldHint="";
 
-if(loc.npc) base.push("talk");
-
-if(player.location==="forest" && quests.beast.started && !quests.beast.completed){
-base.push("kill beast","spare beast");
+if(worldState.townState==="hostile"){
+worldHint=" Everyone watches you closely.";
+}
+if(worldState.townState==="fearful"){
+worldHint=" People avoid your gaze.";
+}
+if(worldState.townState==="friendly"){
+worldHint=" People greet you warmly.";
 }
 
-if(!quests.bandit.started) base.push("investigate");
-
-return base;
-}
-
-function showChoices(arr){
-choices.innerHTML="";
-arr.forEach(c=>{
-let b=document.createElement("button");
-b.textContent=c;
-b.onclick=()=>process(c);
-choices.appendChild(b);
-});
+return `You ${text}. You are in ${loc.desc}.${worldHint}`;
 }
 
 // ---------- STATS ----------
 function updateStats(){
-stats.textContent=
-`LVL:${player.level} XP:${player.xp} | Town:${player.factions.town} Outlaw:${player.factions.outlaw} Ranger:${player.factions.ranger}`;
-}
-
-// ---------- SAVE ----------
-function save(){
-localStorage.setItem("save",JSON.stringify({player,quests,npcs,locations,log}));
-alert("Saved");
-}
-
-// ---------- LOAD ----------
-function load(){
-let s=localStorage.getItem("save");
-if(!s) return alert("No save");
-
-let d=JSON.parse(s);
-player=d.player;
-quests=d.quests;
-npcs=d.npcs;
-locations=d.locations;
-log=d.log;
-
-title.style.display="none";
-game.style.display="flex";
-
-story.innerHTML="";
-log.forEach(t=>{
-let el=document.createElement("div");
-el.textContent=t;
-story.appendChild(el);
-});
-
-showImg();
-updateStats();
-showChoices(["continue"]);
+stats.textContent =
+`HP:${player.hp} XP:${player.xp} REP:${player.rep} STATE:${worldState.townState}`;
 }
 
 </script>
 </body>
 </html>
-``
