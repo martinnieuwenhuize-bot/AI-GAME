@@ -222,11 +222,33 @@ function enemyTurn(){
   player.life-=dmg;
 
   addStory("Enemy hits for "+dmg);
+}function checkCombat(){
+  if (combat.hp <= 0) {
+    addStory("Enemy defeated!");
+
+    player.gold += 10;
+    player.level++;
+
+    if (Math.random() > 0.5) unlockSpell();
+
+    combat = null;
+
+    updateHUD();
+
+    // ✅ PROPERLY RETURN TO STORY
+    renderChoices([
+      "Advance",
+      "Search the area",
+      "Rest"
+    ]);
+
+  } else {
+    enemyTurn();
+    updateHUD();
+  }
 }
 
-function checkCombat(){
-  if(combat.hp <= 0){
-    addStory("Enemy defeated!");
+
 
     player.gold += 10;
     player.level++;
