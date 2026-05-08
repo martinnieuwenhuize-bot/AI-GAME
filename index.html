@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rift RPG: Ultimate</title>
+<title>Rift RPG Ultimate</title>
 
 <style>
 body {
@@ -11,46 +11,54 @@ body {
   font-family:serif;
   margin:0;
   padding:10px;
-  overflow-x:hidden;
 }
 
-h2 {text-align:center;color:#eccc68;}
+h2 { text-align:center; color:#eccc68; }
 
-#hud { border-bottom:1px solid #333; padding-bottom:10px; margin-bottom:10px; }
+/* HUD */
+#hud { border-bottom:1px solid #333; padding-bottom:10px; }
 
 .bar { height:8px; background:#111; margin:5px 0; border-radius:4px; }
-.fill { height:100%; transition:width .4s; border-radius:4px; }
+.fill { height:100%; border-radius:4px; transition:.4s }
 
 .life { background:#2ed573; }
 .will { background:#a55eea; }
 .xp { background:#ffa502; }
 
+/* Buttons */
 .choice {
   width:100%;
   padding:12px;
   margin:5px 0;
   background:#121520;
-  color:#ccc;
   border:1px solid #333;
-  transition:.2s;
-}
-.choice:active { transform:scale(.97); background:#202840; }
-
-.fade { animation:fade 1s; }
-@keyframes fade { from{opacity:0} to{opacity:1} }
-
-.shake { animation:shake .3s; }
-@keyframes shake {
-  0%{transform:translateX(0)}
-  25%{transform:translateX(-5px)}
-  50%{transform:translateX(5px)}
+  color:#ccc;
 }
 
-.glow { animation:glow 1s; }
-@keyframes glow {
-  0%{text-shadow:0 0 0}
-  50%{text-shadow:0 0 14px violet}
-  100%{text-shadow:none}
+/* Glow button */
+.glow {
+  border-color:#a55eea;
+  box-shadow:0 0 15px #a55eea;
+  animation:pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%{box-shadow:0 0 5px #a55eea}
+  50%{box-shadow:0 0 20px #a55eea}
+  100%{box-shadow:0 0 5px #a55eea}
+}
+
+/* Map animation */
+#map.slide {
+  animation:slideUp .4s;
+}
+@keyframes slideUp {
+  from{transform:translateY(30px);opacity:0}
+  to{transform:translateY(0);opacity:1}
+}
+
+#story div {
+  opacity:0;
+  transition:.5s;
 }
 
 </style>
@@ -58,7 +66,7 @@ h2 {text-align:center;color:#eccc68;}
 
 <body>
 
-<h2>⚔ Rift RPG: Ultimate</h2>
+<h2>⚔ Rift RPG</h2>
 
 <div id="hud"></div>
 <div id="story"></div>
@@ -67,6 +75,7 @@ h2 {text-align:center;color:#eccc68;}
 
 <script>
 
+// ===== PLAYER =====
 let player = {
   life:100,maxLife:100,
   will:100,maxWill:100,
@@ -77,18 +86,19 @@ let player = {
 };
 
 let combat=null;
+let music=null;
 
-// ===== SAVE/LOAD =====
-function save(){ localStorage.setItem("riftX",JSON.stringify(player)); }
+// ===== SAVE =====
+function save(){ localStorage.setItem("riftFinal",JSON.stringify(player)); }
 function load(){
-  let s=localStorage.getItem("riftX");
+  let s=localStorage.getItem("riftFinal");
   if(s) player=JSON.parse(s);
 }
 load();
 setInterval(save,4000);
 
 // ===== HUD =====
-function hud(){
+function updateHUD(){
   document.getElementById("hud").innerHTML=`
   ❤️ ${player.life}/${player.maxLife}
   <div class="bar"><div class="fill life" style="width:${player.life}%"></div></div>
@@ -105,148 +115,180 @@ function hud(){
 }
 
 // ===== STORY =====
-function story(t,cls=""){
-  let e=document.createElement("div");
-  e.className="fade "+cls;
-  e.textContent=t;
-  document.getElementById("story").appendChild(e);
+function story(text){
+  let d=document.createElement("div");
+  d.textContent=text;
+  document.getElementById("story").appendChild(d);
+  setTimeout(()=>d.style.opacity=1,10);
   window.scrollTo(0,9999);
 }
 
-// ===== INTRO CUTSCENE =====
+// ===== INTRO =====
 function intro(){
   story("Darkness...");
   setTimeout(()=>story("A distant hum reaches your mind..."),800);
   setTimeout(()=>story("The Rift has opened."),1600);
-  setTimeout(()=>story("And something has stepped through."),2500);
+  setTimeout(()=>story("Something is coming through..."),2400);
+
+  setTimeout(()=>{
+    showStartButton();
+  },3200);
+}
+
+function showStartButton(){
+  let c=document.getElementById("choices");
+  c.innerHTML="";
+
+  let btn=document.createElement("button");
+  btn.className="choice glow";
+  btn.textContent="✦ Enter the Rift ✦";
+  btn.onclick=startGame;
+
+  c.appendChild(btn);
+}
+
+// ===== START GAME =====
+function startGame(){
+  story("You step into fate...");
+  document.getElementById("choices").innerHTML="";
+  showMap();
+  playMusic();
 }
 
 // ===== MAP =====
-function map(){
+function showMap(){
   if(combat) return;
 
-  document.getElementById("map").innerHTML=`
-  <button class="choice" onclick="travel('Rift Edge')">Rift Edge</button>
-  <button class="choice" onclick="travel('War Camp')">War Camp</button>
-  <button class="choice" onclick="travel('Ruins')">Ancient Ruins</button>
+  let m=document.getElementById("map");
+  m.innerHTML=`
+    <button class="choice" onclick="travel('Rift Edge')">Rift Edge</button>
+    <button class="choice" onclick="travel('War Camp')">War Camp</button>
+    <button class="choice" onclick="travel('Ruins')">Ancient Ruins</button>
   `;
+
+  m.classList.remove("slide");
+  void m.offsetWidth;
+  m.classList.add("slide");
 }
 
+// ===== TRAVEL =====
 function travel(loc){
   player.location=loc;
   story("You arrive at "+loc);
-  event();
+  randomEvent();
+  updateHUD();
 }
 
 // ===== EVENTS =====
-function event(){
+function randomEvent(){
   if(Math.random()>0.5){
-    fight(enemy());
+    startCombat();
   } else {
-    story("Silence. Uneasy silence.");
-    choose(["Search","Rest","Wait"]);
+    story("The area is quiet...");
+    renderChoices(["Search","Rest"]);
   }
 }
 
-// ===== ENEMIES =====
-function enemy(){
-  let e=[
+// ===== ENEMY =====
+function startCombat(){
+  let types=[
     {name:"Warrior",hp:40,atk:8},
-    {name:"Brute",hp:70,atk:10},
+    {name:"Brute",hp:60,atk:10},
     {name:"Mage",hp:30,atk:12}
   ];
-  return e[Math.floor(Math.random()*e.length)];
+  combat=types[Math.floor(Math.random()*types.length)];
+
+  story("⚔ "+combat.name+" attacks!");
+  renderCombat();
+  updateHUD();
 }
 
-// ===== COMBAT =====
-function fight(e){
-  combat={...e};
-  story("⚔ "+e.name+" attacks!");
-  combatUI();
-  hud();
-}
-
-function combatUI(){
+// ===== COMBAT UI =====
+function renderCombat(){
   let c=document.getElementById("choices");
   c.innerHTML="";
 
   player.spells.forEach(s=>{
-    let b=btn(s.name,()=>cast(s));
+    let b=document.createElement("button");
+    b.className="choice";
+    b.textContent=s.name;
+    b.onclick=()=>cast(s);
     c.appendChild(b);
   });
 
-  c.appendChild(btn("Attack",attack));
+  let atk=document.createElement("button");
+  atk.className="choice";
+  atk.textContent="Attack";
+  atk.onclick=attack;
+  c.appendChild(atk);
 }
 
+// ===== ATTACK =====
 function attack(){
   let dmg=Math.floor(Math.random()*10+5);
   if(Math.random()>0.8){
     dmg*=2;
-    story("💥 CRITICAL!", "glow");
+    story("💥 Critical hit!");
   }
-
   combat.hp-=dmg;
-  story("You hit "+dmg);
-  hitFX();
-
-  check();
+  story("You deal "+dmg);
+  navigator.vibrate?.(50);
+  checkCombat();
 }
 
+// ===== SPELL =====
 function cast(s){
-  if(player.will<s.c){ story("No will!"); return; }
-
+  if(player.will<s.c){
+    story("Not enough will!");
+    return;
+  }
   player.will-=s.c;
   combat.hp-=s.d;
-  story("✨ "+s.name,"glow");
-
-  check();
+  story("✨ "+s.name);
+  checkCombat();
 }
 
+// ===== ENEMY TURN =====
 function enemyTurn(){
   player.life-=combat.atk;
-  story("Enemy strikes "+combat.atk);
-  hitFX();
+  story("Enemy hits "+combat.atk);
+  navigator.vibrate?.(80);
 }
 
-function hitFX(){
-  document.body.classList.add("shake");
-  setTimeout(()=>document.body.classList.remove("shake"),200);
-}
-
-function check(){
+// ===== CHECK =====
+function checkCombat(){
   if(combat.hp<=0){
-    story("Enemy slain!");
+    story("Enemy defeated!");
 
     player.gold+=10;
     player.xp+=25;
 
     if(player.xp>=100){
-      levelUp();
+      player.level++;
+      player.xp=0;
+      unlockSpell();
+      story("LEVEL UP!");
     }
 
     combat=null;
-    choose(["Continue"]);
-    map();
+    renderChoices(["Continue"]);
+    showMap();
 
   } else {
     enemyTurn();
-    combatUI();
+    renderCombat();
   }
 
-  deathCheck();
-  hud();
+  if(player.life<=0){
+    story("☠ You died...");
+    localStorage.clear();
+    setTimeout(()=>location.reload(),3000);
+  }
+
+  updateHUD();
 }
 
-// ===== LEVEL =====
-function levelUp(){
-  player.level++;
-  player.xp=0;
-  story("🌟 LEVEL UP!");
-
-  unlockSpell();
-}
-
-// ===== SPELLS =====
+// ===== SPELL UNLOCK =====
 function unlockSpell(){
   let pool=[
     {name:"Flame Burst",d:20,c:10},
@@ -256,29 +298,32 @@ function unlockSpell(){
   let s=pool[Math.floor(Math.random()*pool.length)];
   if(!player.spells.find(x=>x.name===s.name)){
     player.spells.push(s);
-    story("🧙 Learned "+s.name);
+    story("Learned "+s.name);
   }
 }
 
-// ===== ACTION =====
-function choose(arr){
+// ===== ACTIONS =====
+function renderChoices(arr){
   let c=document.getElementById("choices");
   c.innerHTML="";
-  arr.forEach(x=>c.appendChild(btn(x,()=>act(x))));
+
+  arr.forEach(a=>{
+    let b=document.createElement("button");
+    b.className="choice";
+    b.textContent=a;
+    b.onclick=()=>action(a);
+    c.appendChild(b);
+  });
 }
 
-function act(a){
+function action(a){
   story("> "+a);
-
-  if(combat) return;
 
   if(a==="Search"){
     if(Math.random()>0.5){
-      story("You found gold!");
       player.gold+=5;
-    } else {
-      story("Nothing found.");
-    }
+      story("You found gold!");
+    } else story("Nothing found.");
   }
 
   if(a==="Rest"){
@@ -287,44 +332,29 @@ function act(a){
     story("You recover.");
   }
 
-  if(a==="Wait"){
-    story("Time passes...");
-    event();
-  }
-
-  hud();
+  updateHUD();
 }
 
-// ===== BUTTON =====
-function btn(text,fn){
-  let b=document.createElement("button");
-  b.className="choice";
-  b.textContent=text;
-  b.onclick=fn;
-  return b;
-}
+// ===== MUSIC =====
+function playMusic(){
+  if(music) return;
 
-// ===== DEATH =====
-function deathCheck(){
-  if(player.life<=0){
-    story("☠ You have fallen...");
-    document.getElementById("choices").innerHTML="";
-    document.getElementById("map").innerHTML="";
-
-    setTimeout(()=>{
-      localStorage.removeItem("riftX");
-      location.reload();
-    },3000);
-  }
+  music=new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_d1718d84bb.mp3");
+  music.loop=true;
+  music.volume=0.4;
+  music.play().catch(()=>{});
 }
 
 // ===== START =====
 intro();
-hud();
-map();
+updateHUD();
 
 </script>
 
 </body>
 </html>
 
+ 
+ 
+
+ 
