@@ -2,282 +2,329 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rift RPG</title>
+<title>Rift RPG: Ultimate</title>
 
 <style>
-body { font-family: serif; background:#080a0f; color:#ddd; padding:10px; }
-h2 { text-align:center; color:gold; }
+body {
+  background:#07090f;
+  color:#ddd;
+  font-family:serif;
+  margin:0;
+  padding:10px;
+  overflow-x:hidden;
+}
 
-#hud { border:1px solid #444; padding:8px; margin-bottom:10px; }
+h2 {text-align:center;color:#eccc68;}
 
-.bar { height:10px; background:#222; margin:5px 0; }
-.fill { height:100%; }
+#hud { border-bottom:1px solid #333; padding-bottom:10px; margin-bottom:10px; }
 
-.life { background:green; }
-.will { background:purple; }
-.xp { background:gold; }
+.bar { height:8px; background:#111; margin:5px 0; border-radius:4px; }
+.fill { height:100%; transition:width .4s; border-radius:4px; }
 
-button {
+.life { background:#2ed573; }
+.will { background:#a55eea; }
+.xp { background:#ffa502; }
+
+.choice {
   width:100%;
   padding:12px;
   margin:5px 0;
-  background:#111;
-  color:#ddd;
-  border:1px solid #444;
+  background:#121520;
+  color:#ccc;
+  border:1px solid #333;
+  transition:.2s;
+}
+.choice:active { transform:scale(.97); background:#202840; }
+
+.fade { animation:fade 1s; }
+@keyframes fade { from{opacity:0} to{opacity:1} }
+
+.shake { animation:shake .3s; }
+@keyframes shake {
+  0%{transform:translateX(0)}
+  25%{transform:translateX(-5px)}
+  50%{transform:translateX(5px)}
 }
 
-input { width:100%; padding:10px; }
+.glow { animation:glow 1s; }
+@keyframes glow {
+  0%{text-shadow:0 0 0}
+  50%{text-shadow:0 0 14px violet}
+  100%{text-shadow:none}
+}
 
-#story { min-height:200px; white-space:pre-line; }
-#journal { font-size:12px; margin-top:10px; color:#aaa; }
 </style>
 </head>
 
 <body>
 
-<h2>⚔ Rift RPG</h2>
+<h2>⚔ Rift RPG: Ultimate</h2>
 
 <div id="hud"></div>
 <div id="story"></div>
 <div id="choices"></div>
-
-<h3>📜 Journal</h3>
-<div id="journal"></div>
+<div id="map"></div>
 
 <script>
 
-// ===== PLAYER =====
 let player = {
-  life:100, maxLife:100,
-  will:100, maxWill:100,
-  xp:0, level:1,
+  life:100,maxLife:100,
+  will:100,maxWill:100,
+  xp:0,level:1,
   gold:0,
-  spells:[],
-  quests:[
-    {name:"Discover the Rift", stage:0, done:false}
-  ]
+  location:"Rift Edge",
+  spells:[{name:"Spark",d:10,c:5}]
 };
 
-let combat = null;
+let combat=null;
+
+// ===== SAVE/LOAD =====
+function save(){ localStorage.setItem("riftX",JSON.stringify(player)); }
+function load(){
+  let s=localStorage.getItem("riftX");
+  if(s) player=JSON.parse(s);
+}
+load();
+setInterval(save,4000);
 
 // ===== HUD =====
-function updateHUD(){
-  document.getElementById("hud").innerHTML = `
+function hud(){
+  document.getElementById("hud").innerHTML=`
   ❤️ ${player.life}/${player.maxLife}
-  <div class="bar"><div class="fill life" style="width:${(player.life/player.maxLife)*100}%"></div></div>
+  <div class="bar"><div class="fill life" style="width:${player.life}%"></div></div>
 
   ✦ ${player.will}/${player.maxWill}
-  <div class="bar"><div class="fill will" style="width:${(player.will/player.maxWill)*100}%"></div></div>
+  <div class="bar"><div class="fill will" style="width:${player.will}%"></div></div>
 
-  ⭐ XP ${player.xp}/100
+  ⭐ ${player.xp}/100
   <div class="bar"><div class="fill xp" style="width:${player.xp}%"></div></div>
 
-  🪙 ${player.gold} | Lv ${player.level}
-
-  ${combat ? "<br>⚔ "+combat.name+" ("+combat.hp+" HP)" : ""}
+  🪙 ${player.gold} | Lv ${player.level} | 📍 ${player.location}
+  ${combat ? "<br>⚔ "+combat.name+" ("+combat.hp+")" : ""}
   `;
 }
 
 // ===== STORY =====
-function addStory(t){
-  const el=document.createElement("div");
-  document.getElementById("story").appendChild(el);
-  let i=0;
-  function type(){
-    if(i<t.length){ el.innerHTML+=t[i++]; setTimeout(type,10); }
-  }
-  type();
+function story(t,cls=""){
+  let e=document.createElement("div");
+  e.className="fade "+cls;
+  e.textContent=t;
+  document.getElementById("story").appendChild(e);
+  window.scrollTo(0,9999);
 }
 
-// ===== STORY SYSTEM =====
-function generateStory(action){
-  const events = [
-    "The Rift pulses.",
-    "A dark wind howls.",
-    "Reality bends around you.",
-    "A distant scream echoes."
-  ];
+// ===== INTRO CUTSCENE =====
+function intro(){
+  story("Darkness...");
+  setTimeout(()=>story("A distant hum reaches your mind..."),800);
+  setTimeout(()=>story("The Rift has opened."),1600);
+  setTimeout(()=>story("And something has stepped through."),2500);
+}
 
-  return {
-    narrative: events[Math.floor(Math.random()*events.length)] + " You " + action + ".",
-    enemy: Math.random()>0.4 ? spawnEnemy() : null
-  };
+// ===== MAP =====
+function map(){
+  if(combat) return;
+
+  document.getElementById("map").innerHTML=`
+  <button class="choice" onclick="travel('Rift Edge')">Rift Edge</button>
+  <button class="choice" onclick="travel('War Camp')">War Camp</button>
+  <button class="choice" onclick="travel('Ruins')">Ancient Ruins</button>
+  `;
+}
+
+function travel(loc){
+  player.location=loc;
+  story("You arrive at "+loc);
+  event();
+}
+
+// ===== EVENTS =====
+function event(){
+  if(Math.random()>0.5){
+    fight(enemy());
+  } else {
+    story("Silence. Uneasy silence.");
+    choose(["Search","Rest","Wait"]);
+  }
 }
 
 // ===== ENEMIES =====
-function spawnEnemy(){
-  const enemies = [
-    {name:"Tsurani Warrior",hp:40,attack:8},
-    {name:"Tsurani Brute",hp:60,attack:10},
-    {name:"Rift Mage",hp:35,attack:12}
+function enemy(){
+  let e=[
+    {name:"Warrior",hp:40,atk:8},
+    {name:"Brute",hp:70,atk:10},
+    {name:"Mage",hp:30,atk:12}
   ];
-  return enemies[Math.floor(Math.random()*enemies.length)];
-}
-
-// ===== FLOW =====
-function handleInput(input){
-  addStory("> "+input);
-
-  if(combat) return;
-
-  const d = generateStory(input);
-
-  addStory(d.narrative);
-
-  if(d.enemy){
-    startCombat(d.enemy);
-  } else {
-    renderChoices(["Advance","Search","Rest"]);
-  }
-
-  progressQuest();
-  updateHUD();
+  return e[Math.floor(Math.random()*e.length)];
 }
 
 // ===== COMBAT =====
-function startCombat(enemy){
-  combat = {...enemy};
-  addStory("⚔ "+enemy.name+" attacks!");
-  renderCombat();
-  updateHUD();
+function fight(e){
+  combat={...e};
+  story("⚔ "+e.name+" attacks!");
+  combatUI();
+  hud();
 }
 
-function renderCombat(){
-  const area=document.getElementById("choices");
-  area.innerHTML="";
+function combatUI(){
+  let c=document.getElementById("choices");
+  c.innerHTML="";
 
   player.spells.forEach(s=>{
-    let b=document.createElement("button");
-    b.textContent=s.name;
-    b.onclick=()=>cast(s);
-    area.appendChild(b);
+    let b=btn(s.name,()=>cast(s));
+    c.appendChild(b);
   });
 
-  let atk=document.createElement("button");
-  atk.textContent="Attack";
-  atk.onclick=attack;
-  area.appendChild(atk);
+  c.appendChild(btn("Attack",attack));
 }
 
 function attack(){
   let dmg=Math.floor(Math.random()*10+5);
-  if(Math.random()>0.8){ dmg*=2; addStory("💥 Critical hit!"); }
+  if(Math.random()>0.8){
+    dmg*=2;
+    story("💥 CRITICAL!", "glow");
+  }
 
   combat.hp-=dmg;
-  addStory("You deal "+dmg);
+  story("You hit "+dmg);
+  hitFX();
 
-  checkCombat();
+  check();
 }
 
 function cast(s){
-  if(player.will<s.cost){ addStory("Not enough will"); return; }
+  if(player.will<s.c){ story("No will!"); return; }
 
-  player.will-=s.cost;
-  combat.hp-=s.damage;
+  player.will-=s.c;
+  combat.hp-=s.d;
+  story("✨ "+s.name,"glow");
 
-  addStory("✨ "+s.name+" hits for "+s.damage);
-
-  checkCombat();
+  check();
 }
 
 function enemyTurn(){
-  player.life-=combat.attack;
-  addStory("Enemy hits "+combat.attack);
+  player.life-=combat.atk;
+  story("Enemy strikes "+combat.atk);
+  hitFX();
 }
 
-function checkCombat(){
+function hitFX(){
+  document.body.classList.add("shake");
+  setTimeout(()=>document.body.classList.remove("shake"),200);
+}
+
+function check(){
   if(combat.hp<=0){
-    addStory("Enemy defeated!");
+    story("Enemy slain!");
 
     player.gold+=10;
     player.xp+=25;
 
     if(player.xp>=100){
-      player.xp=0;
-      player.level++;
-      unlockSpell();
-      addStory("🌟 Level up!");
+      levelUp();
     }
 
     combat=null;
-    renderChoices(["Continue","Search","Rest"]);
+    choose(["Continue"]);
+    map();
 
   } else {
     enemyTurn();
-    renderCombat();
+    combatUI();
   }
 
-  updateHUD();
+  deathCheck();
+  hud();
 }
 
-// ===== SPELL TREE =====
+// ===== LEVEL =====
+function levelUp(){
+  player.level++;
+  player.xp=0;
+  story("🌟 LEVEL UP!");
+
+  unlockSpell();
+}
+
+// ===== SPELLS =====
 function unlockSpell(){
-  const pool = [
-    {name:"Spark",damage:10,cost:5},
-    {name:"Flame Burst",damage:20,cost:10},
-    {name:"Rift Bolt",damage:30,cost:15}
+  let pool=[
+    {name:"Flame Burst",d:20,c:10},
+    {name:"Rift Bolt",d:30,c:15}
   ];
 
-  const s = pool[Math.floor(Math.random()*pool.length)];
-
+  let s=pool[Math.floor(Math.random()*pool.length)];
   if(!player.spells.find(x=>x.name===s.name)){
     player.spells.push(s);
-    addStory("🧙 Learned "+s.name);
+    story("🧙 Learned "+s.name);
   }
 }
 
-// ===== QUEST SYSTEM =====
-function progressQuest(){
-  let q = player.quests[0];
+// ===== ACTION =====
+function choose(arr){
+  let c=document.getElementById("choices");
+  c.innerHTML="";
+  arr.forEach(x=>c.appendChild(btn(x,()=>act(x))));
+}
 
-  if(q.stage===0){
-    q.stage=1;
-    addStory("📜 Quest updated: Approach the Rift");
+function act(a){
+  story("> "+a);
+
+  if(combat) return;
+
+  if(a==="Search"){
+    if(Math.random()>0.5){
+      story("You found gold!");
+      player.gold+=5;
+    } else {
+      story("Nothing found.");
+    }
   }
-  else if(q.stage===1){
-    q.stage=2;
-    addStory("📜 Quest updated: Survive the Rift");
-  }
-  else if(q.stage===2){
-    q.done=true;
-    addStory("✅ Quest complete!");
+
+  if(a==="Rest"){
+    player.life=Math.min(player.maxLife,player.life+15);
+    player.will=Math.min(player.maxWill,player.will+15);
+    story("You recover.");
   }
 
-  updateJournal();
+  if(a==="Wait"){
+    story("Time passes...");
+    event();
+  }
+
+  hud();
 }
 
-function updateJournal(){
-  document.getElementById("journal").innerHTML =
-    player.quests.map(q=>q.name + (q.done?" ✅":"")).join("<br>");
+// ===== BUTTON =====
+function btn(text,fn){
+  let b=document.createElement("button");
+  b.className="choice";
+  b.textContent=text;
+  b.onclick=fn;
+  return b;
 }
 
-// ===== SAVE =====
-function save(){
-  localStorage.setItem("rift",JSON.stringify(player));
-}
+// ===== DEATH =====
+function deathCheck(){
+  if(player.life<=0){
+    story("☠ You have fallen...");
+    document.getElementById("choices").innerHTML="";
+    document.getElementById("map").innerHTML="";
 
-function load(){
-  const s = localStorage.getItem("rift");
-  if(s) player = JSON.parse(s);
+    setTimeout(()=>{
+      localStorage.removeItem("riftX");
+      location.reload();
+    },3000);
+  }
 }
-load();
-setInterval(save,5000);
 
 // ===== START =====
-addStory("You stand before the Rift. It hums with power.");
-
-updateHUD();
-
-renderChoices([
-  "Step forward",
-  "Study the Rift",
-  "Leave"
-]);
+intro();
+hud();
+map();
 
 </script>
 
 </body>
 </html>
-``
-
 
