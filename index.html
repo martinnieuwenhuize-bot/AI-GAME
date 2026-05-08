@@ -2,24 +2,14 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rift RPG – Campaign Mode</title>
+<title>Rift RPG – Ultimate Campaign</title>
 
 <style>
 body{margin:0;background:#07090f;color:#ddd;font-family:serif;}
 .hidden{display:none;}
-button{
-  width:100%;padding:12px;margin:6px 0;
-  background:#121520;border:1px solid #333;color:#ddd;
-}
-#title{
-  position:fixed;inset:0;display:flex;flex-direction:column;
-  justify-content:center;align-items:center;
-  background:radial-gradient(circle,#1a1330,#07090f);
-}
-#title h1{
-  font-size:42px;color:#e0c7ff;
-  text-shadow:0 0 30px #a55eea;
-}
+button{width:100%;padding:12px;margin:6px 0;background:#121520;border:1px solid #333;color:#ddd;}
+#title{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:radial-gradient(circle,#1a1330,#07090f);}
+#title h1{font-size:42px;color:#e0c7ff;text-shadow:0 0 30px #a55eea;}
 #hud{padding:10px;border-bottom:1px solid #333;}
 .bar{height:8px;background:#111;margin:4px 0;}
 .fill{height:100%;}
@@ -29,11 +19,11 @@ button{
 #story div{opacity:0;transition:.4s;}
 #story .show{opacity:1;}
 #map{padding:10px;}
-#overlay{
-  position:fixed;inset:0;background:#000d;
-  display:none;justify-content:center;align-items:center;
-}
-.box{background:#111;padding:20px;width:90%;max-width:360px;}
+#overlay{position:fixed;inset:0;background:#000d;display:none;justify-content:center;align-items:center;}
+.box{background:#111;padding:20px;width:90%;max-width:380px;}
+.quest{border-bottom:1px solid #333;padding:6px;}
+.quest.done{color:#6f6;}
+.quest.side{color:#7fb;}
 </style>
 </head>
 
@@ -43,8 +33,12 @@ button{
 <div id="title">
   <h1>RIFT</h1>
   <p>The Rift War Begins</p>
-  <button onclick="newGame()">New Game</button>
-  <button onclick="loadGame()">Load Game</button>
+  <button onclick="newGame(1)">New Game (Slot 1)</button>
+  <button onclick="newGame(2)">New Game (Slot 2)</button>
+  <button onclick="newGame(3)">New Game (Slot 3)</button>
+  <button onclick="loadGame(1)">Load Slot 1</button>
+  <button onclick="loadGame(2)">Load Slot 2</button>
+  <button onclick="loadGame(3)">Load Slot 3</button>
 </div>
 
 <!-- GAME -->
@@ -52,31 +46,27 @@ button{
   <div id="hud"></div>
   <div id="story"></div>
   <div id="map"></div>
-  <button onclick="openInventory()">🎒 Inventory</button>
+  <button onclick="openJournal()">📜 Quest Journal</button>
 </div>
 
 <!-- OVERLAY -->
-<div id="overlay">
-  <div class="box" id="overlayBox"></div>
-</div>
+<div id="overlay"><div class="box" id="overlayBox"></div></div>
 
 <script>
-// ===== SAVE / LOAD =====
-function saveGame(){
-  localStorage.setItem("riftCampaign",JSON.stringify(player));
-}
-function loadGame(){
-  let s=localStorage.getItem("riftCampaign");
-  if(!s) return alert("No save found");
-  player=JSON.parse(s);
-  startCampaign();
-}
-
-// ===== PLAYER =====
+let slot = null;
 let player;
 
+// ===== SAVE / LOAD =====
+function saveGame(){ localStorage.setItem("riftSave"+slot, JSON.stringify(player)); }
+function loadGame(s){
+  let data = localStorage.getItem("riftSave"+s);
+  if(!data) return alert("No save in slot "+s);
+  slot=s; player=JSON.parse(data); startCampaign();
+}
+
 // ===== NEW GAME =====
-function newGame(){
+function newGame(s){
+  slot=s;
   player={
     life:100,maxLife:100,
     will:100,maxWill:100,
@@ -84,20 +74,64 @@ function newGame(){
     chapter:1,
     location:"Rift Edge",
     faction:{Isles:0,Tsurani:0},
+    spells:["Spark"],
     inventory:[],
-    gear:{weapon:null,armor:null,relic:null}
+    quests:[]
   };
+
+  // main quest
+  addQuest("The Rift Opens","Main","Investigate the Rift",[
+    "Travel to the Rift Edge",
+    "Choose a faction",
+    "Survive the first conflict"
+  ],{gold:20});
+
+  // optional side quest
+  addQuest("Echoes of Power","Side","Seek forgotten magic",[
+    "Explore the Border City",
+    "Recover a relic"
+  ],{spell:"Flame Burst"});
+
   startCampaign();
+}
+
+// ===== QUEST SYSTEM =====
+function addQuest(title,type,desc,steps,reward){
+  player.quests.push({
+    title,type,desc,steps,
+    step:0,status:"active",reward
+  });
+  story("📜 New quest: "+title);
+}
+
+function advanceQuest(title){
+  let q=player.quests.find(q=>q.title===title && q.status==="active");
+  if(!q) return;
+  q.step++;
+  if(q.step>=q.steps.length){
+    q.status="done";
+    grantReward(q.reward);
+    story("✅ Quest completed: "+q.title);
+  } else {
+    story("📜 Quest updated: "+q.title);
+  }
+}
+
+function grantReward(r){
+  if(!r) return;
+  if(r.gold){ player.gold+=r.gold; story("🪙 Gained "+r.gold+" gold"); }
+  if(r.spell && !player.spells.includes(r.spell)){
+    player.spells.push(r.spell);
+    story("✨ Learned spell: "+r.spell);
+  }
 }
 
 // ===== START =====
 function startCampaign(){
   document.getElementById("title").classList.add("hidden");
   document.getElementById("game").classList.remove("hidden");
-  story(`📖 Chapter ${player.chapter}: The Rift Opens`);
-  showMap();
-  hud();
-  saveGame();
+  story("📖 Chapter "+player.chapter+": The Rift War Begins");
+  showMap(); hud(); saveGame();
 }
 
 // ===== UI =====
@@ -115,124 +149,61 @@ function hud(){
   <div class="bar"><div class="fill will" style="width:${player.will}%"></div></div>
   🪙 ${player.gold} | 📍 ${player.location}<br>
   📖 Chapter ${player.chapter}<br>
-  🏰 Isles: ${player.faction.Isles} | ⚔ Tsurani: ${player.faction.Tsurani}
+  🏰 Isles ${player.faction.Isles} | ⚔ Tsurani ${player.faction.Tsurani}
   `;
 }
 
 // ===== MAP =====
 function showMap(){
-  let html=`<button onclick="travel('Rift Edge')">Rift Edge</button>`;
-  if(player.chapter>=2) html+=`<button onclick="travel('Border City')">Border City</button>`;
-  if(player.chapter>=3) html+=`<button onclick="travel('War Camp')">War Camp</button>`;
-  document.getElementById("map").innerHTML=html;
+  document.getElementById("map").innerHTML=`
+    <button onclick="travel('Rift Edge')">Rift Edge</button>
+    <button onclick="travel('Border City')">Border City</button>
+    <button onclick="travel('War Camp')">War Camp</button>
+  `;
 }
 
-// ===== TRAVEL =====
 function travel(loc){
   player.location=loc;
   story("You arrive at "+loc+".");
-  if(loc==="Border City") openShop("Isles");
-  if(loc==="War Camp") openShop("Tsurani");
-  npcEncounter();
-  hud();
-  saveGame();
-}
 
-// ===== NPC / FACTION =====
-function npcEncounter(){
-  story("An emissary approaches.");
-  document.getElementById("map").innerHTML+=`
-    <button onclick="aidIsles()">Aid the Isles</button>
-    <button onclick="aidTsurani()">Aid the Tsurani</button>
-  `;
-}
-function aidIsles(){
-  player.faction.Isles+=5;
-  story("You aid the Kingdom of the Isles.");
-  advanceChapter();
-}
-function aidTsurani(){
-  player.faction.Tsurani+=5;
-  story("You side with the Tsurani Empire.");
-  advanceChapter();
-}
+  if(loc==="Rift Edge") advanceQuest("The Rift Opens");
+  if(loc==="Border City") advanceQuest("Echoes of Power");
 
-// ===== CHAPTER PROGRESSION =====
-function advanceChapter(){
-  if(player.chapter===1 && (player.faction.Isles>=5||player.faction.Tsurani>=5)){
+  if(player.faction.Isles>=5 && player.chapter===1){
     player.chapter=2;
-    story("📖 Chapter II: Allegiances Form");
+    story("📖 Chapter II: Allegiances Harden");
   }
-  if(player.chapter===2 && (player.faction.Isles>=10||player.faction.Tsurani>=10)){
-    player.chapter=3;
-    story("📖 Chapter III: The Rift Decides");
-    checkEnding();
-  }
-  showMap();
-  hud();
-  saveGame();
+
+  saveGame(); hud();
 }
 
-// ===== ENDINGS =====
-function checkEnding(){
-  if(player.faction.Isles>player.faction.Tsurani){
-    ending("The Isles Endure","You helped preserve Midkemia.");
-  } else if(player.faction.Tsurani>player.faction.Isles){
-    ending("The Empire Ascends","The Tsurani reshape both worlds.");
-  } else {
-    ending("The Rift Remains","Neither side prevails. The war continues.");
-  }
+// ===== FACTION CHOICE =====
+function chooseIsles(){
+  player.faction.Isles+=5;
+  advanceQuest("The Rift Opens");
 }
-function ending(title,text){
-  document.getElementById("overlay").style.display="flex";
-  document.getElementById("overlayBox").innerHTML=`
-    <h2>${title}</h2>
-    <p>${text}</p>
-    <button onclick="resetGame()">Return to Title</button>
-  `;
+function chooseTsurani(){
+  player.faction.Tsurani+=5;
+  advanceQuest("The Rift Opens");
 }
 
-// ===== SHOP =====
-function openShop(faction){
-  let priceMod = faction==="Isles"
-    ? Math.max(1,5-player.faction.Isles)
-    : Math.max(1,5-player.faction.Tsurani);
-
-  document.getElementById("overlay").style.display="flex";
-  document.getElementById("overlayBox").innerHTML=`
-    <h3>${faction} Shop</h3>
-    <button onclick="buy('Sword',20*priceMod)">Sword (${20*priceMod}g)</button>
-    <button onclick="buy('Armor',25*priceMod)">Armor (${25*priceMod}g)</button>
-    <button onclick="closeOverlay()">Leave</button>
-  `;
-}
-function buy(item,cost){
-  if(player.gold>=cost){
-    player.gold-=cost;
-    player.inventory.push(item);
-    story("You bought "+item+".");
-    hud();
-    saveGame();
-  } else story("Not enough gold.");
-}
-
-// ===== INVENTORY =====
-function openInventory(){
+// ===== JOURNAL =====
+function openJournal(){
   document.getElementById("overlay").style.display="flex";
   document.getElementById("overlayBox").innerHTML=
-    `<h3>Inventory</h3>`+
-    player.inventory.join("<br>")+
+    "<h3>Quest Journal</h3>" +
+    player.quests.map(q=>`
+      <div class="quest ${q.type==='Side'?'side':''} ${q.status==='done'?'done':''}">
+        <strong>${q.title}</strong> (${q.type})<br>
+        ${q.desc}<br>
+        <em>${q.status==='active'?q.steps[q.step]:"Completed"}</em>
+      </div>
+    `).join("") +
     `<button onclick="closeOverlay()">Close</button>`;
 }
 
 // ===== UTILS =====
-function closeOverlay(){
-  document.getElementById("overlay").style.display="none";
-}
-function resetGame(){
-  localStorage.removeItem("riftCampaign");
-  location.reload();
-}
+function closeOverlay(){ document.getElementById("overlay").style.display="none"; }
 </script>
 
 </body>
