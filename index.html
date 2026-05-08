@@ -2,20 +2,18 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rift RPG – Stable Build</title>
+<title>Rift RPG</title>
 
 <style>
-body {
+/* ===== GLOBAL ===== */
+body{
+  margin:0;
   background:#07090f;
   color:#ddd;
   font-family:serif;
-  margin:0;
-  padding:10px;
 }
-
-h2 { text-align:center; color:#eccc68; }
-
-.choice {
+.hidden{display:none;}
+button{
   width:100%;
   padding:12px;
   margin:6px 0;
@@ -23,165 +21,261 @@ h2 { text-align:center; color:#eccc68; }
   border:1px solid #333;
   color:#ddd;
 }
+button:active{transform:scale(.97);}
 
-.glow {
-  box-shadow:0 0 15px #a55eea;
-  animation:pulse 1.5s infinite;
+/* ===== TITLE SCREEN ===== */
+#title{
+  position:fixed;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  background:
+    radial-gradient(circle at center, #1a1330, #07090f);
+  text-align:center;
+}
+#title h1{
+  font-size:42px;
+  color:#e0c7ff;
+  text-shadow:0 0 25px #a55eea;
+  animation:pulse 2s infinite;
+}
+#title p{
+  color:#aaa;
+  margin-bottom:20px;
+}
+@keyframes pulse{
+  0%{text-shadow:0 0 10px #a55eea}
+  50%{text-shadow:0 0 30px #a55eea}
+  100%{text-shadow:0 0 10px #a55eea}
 }
 
-@keyframes pulse {
-  0%{box-shadow:0 0 5px #a55eea}
-  50%{box-shadow:0 0 20px #a55eea}
-  100%{box-shadow:0 0 5px #a55eea}
+/* ===== HUD ===== */
+#hud{
+  padding:10px;
+  border-bottom:1px solid #333;
+}
+.bar{height:8px;background:#111;margin:4px 0;}
+.fill{height:100%;}
+.life{background:#2ed573;}
+.will{background:#a55eea;}
+
+/* ===== STORY ===== */
+#story{padding:10px;}
+#story div{opacity:0;transition:.4s;}
+#story div.show{opacity:1;}
+
+/* ===== MAP ===== */
+#map{padding:10px;}
+.slide{animation:slide .4s;}
+@keyframes slide{
+  from{transform:translateY(20px);opacity:0}
+  to{transform:translateY(0);opacity:1}
 }
 
-#story div { opacity:0; transition:.4s; }
-
-#inventory {
+/* ===== INVENTORY ===== */
+#inventory{
   position:fixed;
   inset:0;
   background:#000d;
-  display:none; /* ✅ START CLOSED */
+  display:none;
   justify-content:center;
   align-items:center;
 }
-
-.inv-box {
+.inv-box{
   background:#111;
   padding:15px;
   width:90%;
   max-width:320px;
 }
+.item{padding:6px;border-bottom:1px solid #333;}
 </style>
 </head>
 
 <body>
 
-<h2>⚔ Rift RPG</h2>
+<!-- TITLE -->
+<div id="title">
+  <h1>RIFT</h1>
+  <p>The world breaks. You step forward.</p>
+  <button onclick="startGame()">✦ Begin ✦</button>
+</div>
 
-<div id="story"></div>
-<div id="choices"></div>
-<div id="map"></div>
+<!-- GAME -->
+<div id="game" class="hidden">
+  <div id="hud"></div>
+  <div id="story"></div>
+  <div id="map"></div>
+  <button onclick="toggleInventory()">🎒 Inventory</button>
+</div>
 
-<button class="choice" onclick="toggleInventory()">📦 Inventory</button>
-
+<!-- INVENTORY -->
 <div id="inventory">
   <div class="inv-box">
     <h3>Inventory</h3>
     <div id="invList"></div>
-    <button class="choice" onclick="toggleInventory()">Close</button>
+    <h4>Equipped</h4>
+    <div id="gearList"></div>
+    <button onclick="toggleInventory()">Close</button>
   </div>
 </div>
 
 <script>
 // ===== PLAYER =====
-let player = {
-  life:100,
-  will:100,
+let player={
+  life:100,maxLife:100,
+  will:100,maxWill:100,
   gold:0,
   location:"Rift Edge",
-  inventory:["Old Cloak"]
+  inventory:[],
+  gear:{weapon:null,armor:null,relic:null}
 };
 
-let combat = false;
+let combat=null;
 
-// ===== STORY =====
+// ===== HELPERS =====
 function story(text){
   let d=document.createElement("div");
   d.textContent=text;
   document.getElementById("story").appendChild(d);
-  setTimeout(()=>d.style.opacity=1,10);
+  setTimeout(()=>d.classList.add("show"),10);
+}
+function hud(){
+  document.getElementById("hud").innerHTML=`
+  ❤️ ${player.life}/${player.maxLife}
+  <div class="bar"><div class="fill life" style="width:${player.life}%"></div></div>
+  ✦ ${player.will}/${player.maxWill}
+  <div class="bar"><div class="fill will" style="width:${player.will}%"></div></div>
+  🪙 ${player.gold} | 📍 ${player.location}<br>
+  🗡️ ${player.gear.weapon?.name||"None"} |
+  🛡️ ${player.gear.armor?.name||"None"} |
+  🔮 ${player.gear.relic?.name||"None"}
+  `;
 }
 
-// ===== INVENTORY =====
-function toggleInventory(){
-  const inv=document.getElementById("inventory");
-  inv.style.display = inv.style.display==="flex" ? "none" : "flex";
-  renderInventory();
-}
-
-function renderInventory(){
-  document.getElementById("invList").innerHTML =
-    player.inventory.map(i=>"• "+i).join("<br>") || "Empty";
-}
-
-// ===== START FLOW =====
-function startIntro(){
-  story("Darkness surrounds you...");
-  setTimeout(()=>story("A Rift tears open before your eyes."),800);
-  setTimeout(()=>story("Your fate waits."),1600);
-
-  setTimeout(()=>{
-    showContinue();
-  },2400);
-}
-
-function showContinue(){
-  const c=document.getElementById("choices");
-  c.innerHTML="";
-
-  let b=document.createElement("button");
-  b.className="choice glow";
-  b.textContent="✦ Continue ✦";
-  b.onclick=startGame;
-  c.appendChild(b);
-}
-
-// ===== GAME START =====
+// ===== TITLE FLOW =====
 function startGame(){
-  story("You step forward into the unknown.");
-  document.getElementById("choices").innerHTML="";
+  document.getElementById("title").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+  story("The Rift yawns open before you.");
   showMap();
+  hud();
 }
 
 // ===== MAP =====
 function showMap(){
-  const m=document.getElementById("map");
-  m.innerHTML = `
-    <button class="choice" onclick="travel('Rift Edge')">Rift Edge</button>
-    <button class="choice" onclick="travel('War Camp')">War Camp</button>
-    <button class="choice" onclick="travel('Ruins')">Ancient Ruins</button>
+  let m=document.getElementById("map");
+  m.innerHTML=`
+    <button onclick="travel('Rift Edge')">Rift Edge</button>
+    <button onclick="travel('War Camp')">War Camp</button>
+    <button onclick="travel('Ruins')">Ancient Ruins</button>
+    <button onclick="travel('City')">Broken City</button>
   `;
+  m.classList.remove("slide");
+  void m.offsetWidth;
+  m.classList.add("slide");
 }
 
-// ===== TRAVEL =====
 function travel(loc){
   player.location=loc;
-  story("You arrive at " + loc + ".");
-
-  document.getElementById("choices").innerHTML="";
-  document.getElementById("choices").appendChild(actionButton("Search"));
-  document.getElementById("choices").appendChild(actionButton("Rest"));
+  story("You arrive at "+loc+".");
+  if(Math.random()>0.6) npc();
+  else if(Math.random()>0.5) combatStart();
+  else story("The area is quiet.");
+  hud();
 }
 
-// ===== ACTIONS =====
-function actionButton(text){
-  let b=document.createElement("button");
-  b.className="choice";
-  b.textContent=text;
-  b.onclick=()=>doAction(text);
-  return b;
+// ===== NPC =====
+function npc(){
+  story("A hooded stranger approaches.");
+  let m=document.getElementById("map");
+  m.innerHTML=`
+    <button onclick="npcTalk()">Talk</button>
+    <button onclick="showMap()">Ignore</button>
+  `;
+}
+function npcTalk(){
+  story("NPC: The Rift spares no one.");
+  if(Math.random()>0.5){
+    let loot=lootItem();
+    player.inventory.push(loot);
+    story("You receive: "+loot.name);
+  }
+  showMap();
 }
 
-function doAction(a){
-  if(a==="Search"){
-    if(Math.random()>0.5){
-      story("You find something useful.");
-      player.inventory.push("Scrap Relic");
-    } else {
-      story("You find nothing.");
+// ===== COMBAT =====
+function combatStart(){
+  combat={hp:40,atk:8};
+  story("⚔ An enemy attacks!");
+  fightUI();
+}
+function fightUI(){
+  let m=document.getElementById("map");
+  m.innerHTML=`
+    <button onclick="attack()">Attack</button>
+  `;
+}
+function attack(){
+  let dmg=10+(player.gear.weapon?.dmg||0);
+  combat.hp-=dmg;
+  story("You deal "+dmg);
+  if(combat.hp<=0){
+    story("Enemy defeated!");
+    let loot=lootItem();
+    player.inventory.push(loot);
+    story("Loot: "+loot.name);
+    combat=null;
+    showMap();
+  } else {
+    let def=player.gear.armor?.def||0;
+    let hit=Math.max(0,combat.atk-def);
+    player.life-=hit;
+    story("Enemy hits "+hit);
+    if(player.life<=0){
+      story("You fall. The Rift closes.");
+      location.reload();
     }
   }
-
-  if(a==="Rest"){
-    story("You take a moment to recover.");
-    player.life = Math.min(100, player.life+10);
-    player.will = Math.min(100, player.will+10);
-  }
+  hud();
 }
 
-// ===== BOOT =====
-startIntro();
+// ===== LOOT & GEAR =====
+function lootItem(){
+  let pool=[
+    {name:"Iron Sword",type:"weapon",dmg:5},
+    {name:"Steel Armor",type:"armor",def:3},
+    {name:"Void Relic",type:"relic",dmg:2}
+  ];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// ===== INVENTORY =====
+function toggleInventory(){
+  let inv=document.getElementById("inventory");
+  inv.style.display=inv.style.display==="flex"?"none":"flex";
+  renderInventory();
+}
+function renderInventory(){
+  document.getElementById("invList").innerHTML=
+    player.inventory.map((i,idx)=>
+      `<div class="item" onclick="equip(${idx})">${i.name}</div>`
+    ).join("") || "Empty";
+
+  document.getElementById("gearList").innerHTML=`
+    Weapon: ${player.gear.weapon?.name||"None"}<br>
+    Armor: ${player.gear.armor?.name||"None"}<br>
+    Relic: ${player.gear.relic?.name||"None"}
+  `;
+}
+function equip(i){
+  let item=player.inventory[i];
+  player.gear[item.type]=item;
+  story("Equipped "+item.name);
+  renderInventory();
+  hud();
+}
 </script>
 
 </body>
