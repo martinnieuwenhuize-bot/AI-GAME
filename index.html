@@ -7,46 +7,35 @@
 <style>
 body {
   margin:0;
-  background:#0c0906;
-  color:#e8dcc8;
   font-family:serif;
+  color:#e8dcc8;
+  background:
+    linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.9)),
+    url("https://image.pollinations.ai/prompt/dragon%20on%20castle%20wall%20dark%20fantasy");
+  background-size:cover;
 }
-
-#app {
-  max-width:600px;
-  margin:auto;
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-}
-
-#story {
-  flex:1;
-  overflow-y:auto;
-  padding:15px;
-}
-
+#app {max-width:600px;margin:auto;height:100vh;display:flex;flex-direction:column;}
+#title,#game {flex:1;display:flex;flex-direction:column;padding:20px;}
+#title {justify-content:center;align-items:center;text-align:center;}
+#game {display:none;}
+#story {flex:1;overflow-y:auto;}
 input,button {
-  padding:10px;
-  margin-top:5px;
-  background:#1a1410;
-  color:white;
-  border:1px solid #2e2318;
+  padding:10px;margin-top:5px;background:#1a1410;color:white;border:1px solid #2e2318;
 }
-
-.choice {
-  display:block;
-  width:100%;
-  margin-top:5px;
-  background:#2a1e10;
-}
+.choice {display:block;width:100%;background:#2a1e10;margin-top:4px;}
 </style>
-</head>
 
 <body>
 
 <div id="app">
 
+<div id="title">
+<h1>Realm of Milamber</h1>
+<input id="name" placeholder="Your name">
+<button onclick="start()">Begin</button>
+</div>
+
+<div id="game">
 <div id="story"></div>
 
 <input id="input" placeholder="Type anything..."
@@ -55,328 +44,314 @@ onkeydown="if(event.key==='Enter')act()">
 
 <div id="choices"></div>
 <div id="stats"></div>
+</div>
 
 </div>
 
 <script>
 
 // ================= PLAYER =================
-let player = {
-  reputation: 0,
-  location: "tavern",
-  room: "bar"
-};
+let player = { name:"", reputation:0, location:"tavern", room:"bar" };
 
 // ================= TIME =================
-let time = 0;
-let day = 1;
-let phases = ["Morning","Day","Evening","Night"];
+let time=0, day=1;
+let phases=["Morning","Day","Evening","Night"];
 
 // ================= WEATHER =================
-let weather = "Clear";
-let weatherTypes = ["Clear","Rain","Storm"];
+let weather="Clear";
+let weatherTypes=["Clear","Rain","Storm"];
 
 // ================= PLAYSTYLE =================
-let playstyle = {
-  violent:0,
-  stealth:0,
-  heroic:0
-};
+let playstyle={violent:0,stealth:0,heroic:0};
 
 // ================= FACTIONS =================
-let factions = {
-  law:{name:"Guards", opinion:0, allies:["civil"], enemies:["shady"]},
-  shady:{name:"Criminals", opinion:0, allies:[], enemies:["law"]},
-  civil:{name:"Townfolk", opinion:0, allies:["law"], enemies:[]}
+let factions={
+  law:{name:"Guards",power:5,allies:["civil"],enemies:["shady"],opinion:0},
+  shady:{name:"Criminals",power:5,allies:[],enemies:["law"],opinion:0},
+  civil:{name:"Townfolk",power:5,allies:["law"],enemies:[],opinion:0}
 };
 
 // ================= AREAS =================
-let areas = {
+let areas={
   tavern:{control:"civil"},
   street:{control:"law"},
   forest:{control:"shady"}
 };
 
 // ================= WORLD =================
-let world = {
+let world={
   tavern:{
-    bar:{desc:"a crowded tavern bar filled with murmurs and tension", npcs:["borin","guard"]},
-    backroom:{desc:"a dim backroom where whispers linger", npcs:["shady"]},
-    upstairs:{desc:"a creaking upper hallway, mostly empty", npcs:[]}
+    bar:{desc:"a crowded tavern bar filled with murmurs",npcs:["borin","guard"]},
+    backroom:{desc:"a shadowy room where whispers linger",npcs:["shady"]},
+    upstairs:{desc:"a creaking upper hallway",npcs:[]}
   },
-  town:{
-    street:{desc:"a muddy street outside the tavern", npcs:["guard"]}
-  },
-  forest:{
-    clearing:{desc:"a quiet forest clearing, unnervingly still", npcs:["shady"]}
-  }
+  town:{ street:{desc:"a muddy street",npcs:["guard"]}},
+  forest:{ clearing:{desc:"a silent forest clearing",npcs:["shady"]}}
 };
 
 // ================= NPCS =================
-let npcs = {
-  borin:{name:"Borin", faction:"civil", trust:0, loyalty:0, grudge:0, emotion:"neutral", memory:[]},
-  shady:{name:"Unknown Man", faction:"shady", trust:0, loyalty:0, grudge:0, emotion:"paranoid", memory:[]},
-  guard:{name:"Guard", faction:"law", trust:0, loyalty:0, grudge:0, emotion:"strict", memory:[]}
+let npcs={
+  borin:{name:"Borin",faction:"civil",trust:0,loyalty:0,grudge:0,emotion:"neutral",memory:[]},
+  shady:{name:"Unknown Man",faction:"shady",trust:0,loyalty:0,grudge:0,emotion:"paranoid",memory:[]},
+  guard:{name:"Guard",faction:"law",trust:0,loyalty:0,grudge:0,emotion:"strict",memory:[]}
 };
 
 // ================= EVENTS =================
-let worldEvents = [];
+let worldEvents=[];
 
 // ================= UI =================
 function narrate(text){
-  let div=document.createElement("div");
-  div.textContent=text;
-  document.getElementById("story").appendChild(div);
-  div.scrollIntoView();
+ let d=document.createElement("div");
+ d.textContent=text;
+ document.getElementById("story").appendChild(d);
+ d.scrollIntoView();
 }
 
 function updateStats(){
-  document.getElementById("stats").textContent =
-  `Day ${day} (${phases[time%4]}) | Weather: ${weather} | Rep: ${player.reputation} | Area Control: ${areas[player.location].control}`;
+ document.getElementById("stats").textContent =
+ `Day ${day} ${phases[time%4]} | Weather:${weather} | Reputation:${player.reputation} | Control:${areas[player.location].control}`;
 }
 
-// ================= TIME =================
-function advanceTime(){
-  time++;
-  if(time % 4 === 0) day++;
+// ================= START =================
+function start(){
+ player.name=document.getElementById("name").value||"Wanderer";
+ document.getElementById("title").style.display="none";
+ document.getElementById("game").style.display="flex";
 
-  if(Math.random()<0.3){
-    weather = weatherTypes[Math.floor(Math.random()*3)];
-    narrate("The weather shifts to " + weather);
-  }
-
-  factionWar();
-  allianceShift();
-  gossipSystem();
-}
-
-// ================= FACTION WAR =================
-function factionWar(){
-  if(Math.random()<0.3){
-
-    let keys = Object.keys(factions);
-    let a = keys[Math.floor(Math.random()*keys.length)];
-    let b = keys[Math.floor(Math.random()*keys.length)];
-
-    if(a!==b){
-      narrate(`${factions[a].name} clash with ${factions[b].name}.`);
-
-      let zone = Object.keys(areas)[Math.floor(Math.random()*3)];
-      areas[zone].control = a;
-
-      narrate(`${factions[a].name} take control of the ${zone}.`);
-
-      recordEvent(`${factions[a].name} seized ${zone}`);
-    }
-  }
-}
-
-// ================= ALLIANCES =================
-function allianceShift(){
-  if(Math.random()<0.2){
-    let keys = Object.keys(factions);
-    let a = keys[Math.floor(Math.random()*keys.length)];
-    let b = keys[Math.floor(Math.random()*keys.length)];
-
-    if(a!==b){
-      factions[a].allies.push(b);
-      narrate(`${factions[a].name} form an alliance with ${factions[b].name}.`);
-    }
-  }
+ narrate(`You are ${player.name}. The world of Milamber stirs...`);
+ updateStats();
 }
 
 // ================= INPUT =================
 function act(){
-  let inputBox = document.getElementById("input");
-  let text = inputBox.value.toLowerCase();
-  inputBox.value = "";
+ let inputBox=document.getElementById("input");
+ let text=inputBox.value.toLowerCase();
+ inputBox.value="";
+ if(!text) return;
 
-  if(!text) return;
+ narrate("> "+text);
 
-  narrate("> " + text);
-
-  advanceTime();
-  process(text);
+ advanceTime();
+ process(text);
 }
 
-// ================= MAIN =================
+// ================= TIME =================
+function advanceTime(){
+ time++;
+ if(time%4===0) day++;
+
+ if(Math.random()<0.3){
+   weather=weatherTypes[Math.floor(Math.random()*3)];
+   narrate("Weather shifts to "+weather);
+ }
+
+ factionWar();
+ allianceShift();
+ gossip();
+}
+
+// ================= FACTION WAR =================
+function factionWar(){
+ if(Math.random()<0.3){
+   let keys=Object.keys(factions);
+   let a=keys[Math.floor(Math.random()*keys.length)];
+   let b=keys[Math.floor(Math.random()*keys.length)];
+
+   if(a!==b){
+     narrate(`${factions[a].name} clash violently with ${factions[b].name}!`);
+
+     let zone=Object.keys(areas)[Math.floor(Math.random()*3)];
+     areas[zone].control=a;
+
+     narrate(`${factions[a].name} seize the ${zone}.`);
+
+     recordEvent(`${a} captured ${zone}`);
+   }
+ }
+}
+
+// ================= ALLIANCES =================
+function allianceShift(){
+ if(Math.random()<0.2){
+   let keys=Object.keys(factions);
+   let a=keys[Math.floor(Math.random()*keys.length)];
+   let b=keys[Math.floor(Math.random()*keys.length)];
+
+   if(a!==b){
+     factions[a].allies.push(b);
+     narrate(`${factions[a].name} ally with ${factions[b].name}.`);
+   }
+ }
+}
+
+// ================= PROCESS =================
 function process(text){
 
-  if(text.includes("attack")){
-    playstyle.violent++;
-    player.reputation--;
-    factions.law.opinion-=2;
-    factions.shady.opinion+=1;
+ // === PLAYSTYLE ===
+ if(text.includes("attack")) playstyle.violent++;
+ if(text.includes("help")) playstyle.heroic++;
+ if(text.includes("sneak")) playstyle.stealth++;
 
-    Object.values(npcs).forEach(n=>{
-      n.grudge+=2;
-      n.emotion="angry";
-    });
+ // === ACTIONS ===
+ if(text.includes("attack")){
+   player.reputation--;
+   factionAdjust(-2,1,0);
+   updateNPCEmotion("angry");
+   recordEvent("you attacked someone");
+ }
 
-    recordEvent("you attacked someone");
-  }
+ if(text.includes("help")){
+   player.reputation++;
+   factionAdjust(1,0,2);
+   updateNPCEmotion("respect");
+   recordEvent("you helped someone");
+ }
 
-  if(text.includes("help")){
-    playstyle.heroic++;
-    player.reputation++;
+ // === MOVEMENT ===
+ if(text.includes("bar")){player.location="tavern";player.room="bar";}
+ if(text.includes("backroom")){player.location="tavern";player.room="backroom";}
+ if(text.includes("upstairs")){player.location="tavern";player.room="upstairs";}
+ if(text.includes("street")){player.location="town";player.room="street";}
+ if(text.includes("forest")){player.location="forest";player.room="clearing";}
 
-    recordEvent("you helped someone");
-  }
+ // === TALK ===
+ if(text.includes("talk")){
+   dialogueMenu();
+ }
 
-  if(text.includes("sneak")){
-    playstyle.stealth++;
-  }
+ groupReaction(text);
 
-  // movement
-  if(text.includes("bar")) {player.location="tavern"; player.room="bar";}
-  if(text.includes("backroom")) {player.location="tavern"; player.room="backroom";}
-  if(text.includes("upstairs")) {player.location="tavern"; player.room="upstairs";}
-  if(text.includes("street")) {player.location="town"; player.room="street";}
-  if(text.includes("forest")) {player.location="forest"; player.room="clearing";}
-
-  // talking
-  if(text.includes("talk")){
-    showDialogueChoices();
-  }
-
-  groupReaction(text);
-
-  narrate(cinematicNarration(text));
-
-  updateStats();
+ narrate(cinematic(text));
+ updateStats();
 }
 
-// ================= EVENT MEMORY =================
-function recordEvent(desc){
+// ================= FACTION ADJUST =================
+function factionAdjust(law,shady,civil){
+ factions.law.opinion += law;
+ factions.shady.opinion += shady;
+ factions.civil.opinion += civil;
+}
 
-  let event = {
-    desc,
-    day,
-    time:phases[time%4],
-    weather
-  };
-
-  worldEvents.push(event);
-
-  Object.values(npcs).forEach(n=>{
-    n.memory.push(event);
-  });
+// ================= NPC EMOTION =================
+function updateNPCEmotion(e){
+ Object.values(npcs).forEach(n=>n.emotion=e);
 }
 
 // ================= GROUP REACTION =================
 function groupReaction(text){
+ let room = world[player.location][player.room];
+ if(!room || room.npcs.length<2) return;
 
-  let room = world[player.location][player.room];
-  let present = room.npcs;
+ let a=npcs[room.npcs[0]];
+ let b=npcs[room.npcs[1]];
 
-  if(present.length>1){
+ narrate(`${a.name} glances at ${b.name}.`);
 
-    let a = npcs[present[0]];
-    let b = npcs[present[1]];
-
-    narrate(`${a.name} glances at ${b.name}.`);
-
-    if(text.includes("attack") && a.faction==="law"){
-      narrate(`${a.name}: "Stop right there."`);
-    }
-  }
+ if(text.includes("attack") && a.faction==="law"){
+   narrate(`${a.name}: "Stand down!"`);
+ }
 }
 
 // ================= CINEMATIC =================
-function cinematicNarration(text){
+function cinematic(text){
 
-  let style = getStyle();
+ let style=getStyle();
 
-  let toneMap={
-    violent:"There’s an edge of danger around you.",
-    stealth:"You move with quiet precision.",
-    heroic:"You carry a reassuring presence.",
-    neutral:""
-  };
+ let tone={
+   violent:"Your presence feels dangerous.",
+   stealth:"You move almost unnoticed.",
+   heroic:"You carry a calm confidence.",
+   neutral:""
+ }[style];
 
-  let control = areas[player.location].control;
+ let control=areas[player.location].control;
 
-  let areaTone={
-    law:"The area feels controlled and watchful.",
-    shady:"Danger lingers in the air.",
-    civil:"People move with careful neutrality."
-  };
+ let areaTone={
+   law:"Order dominates here.",
+   shady:"Danger lingers.",
+   civil:"People tread carefully."
+ }[control];
 
-  return `${toneMap[style]}
-${areaTone[control]}
-The space responds subtly to your actions.`;
+ return `${tone}
+${areaTone}
+The world shifts subtly around you.`;
 }
 
 // ================= STYLE =================
 function getStyle(){
-  let m = Math.max(playstyle.violent, playstyle.stealth, playstyle.heroic);
-  if(m===playstyle.violent) return "violent";
-  if(m===playstyle.stealth) return "stealth";
-  if(m===playstyle.heroic) return "heroic";
-  return "neutral";
+ let m=Math.max(playstyle.violent,playstyle.stealth,playstyle.heroic);
+ if(m===playstyle.violent)return"violent";
+ if(m===playstyle.stealth)return"stealth";
+ if(m===playstyle.heroic)return"heroic";
+ return"neutral";
+}
+
+// ================= EVENT MEMORY =================
+function recordEvent(desc){
+ let e={desc,day,time:phases[time%4],weather};
+ worldEvents.push(e);
+ Object.values(npcs).forEach(n=>n.memory.push(e));
 }
 
 // ================= DIALOGUE =================
-function showDialogueChoices(){
+function dialogueMenu(){
+ let box=document.getElementById("choices");
+ box.innerHTML="";
 
-  let box = document.getElementById("choices");
-  box.innerHTML="";
-
-  ["polite","ask","boast","threat"].forEach(choice=>{
-    let btn=document.createElement("button");
-    btn.textContent=choice;
-    btn.className="choice";
-    btn.onclick=()=>handleDialogue(choice);
-    box.appendChild(btn);
-  });
+ ["Polite","Ask","Boast","Threat"].forEach(o=>{
+   let b=document.createElement("button");
+   b.textContent=o;
+   b.className="choice";
+   b.onclick=()=>dialogue(o.toLowerCase());
+   box.appendChild(b);
+ });
 }
 
-function handleDialogue(choice){
+function dialogue(type){
+ document.getElementById("choices").innerHTML="";
 
-  document.getElementById("choices").innerHTML="";
+ if(type==="threat"){
+   player.reputation--;
+   narrate("You threaten them.");
+ }
 
-  let npc = npcs.borin;
-
-  if(choice==="polite"){ npc.trust++; narrate("You speak politely."); }
-  if(choice==="threat"){ npc.grudge++; player.reputation--; narrate("You make a threat."); }
-
-  narrate(npc.name + ": " + npcDialogue(npc));
+ narrate("Borin: "+npcTalk());
 }
 
-// ================= NPC DIALOGUE =================
-function npcDialogue(n){
+// ================= NPC TALK =================
+function npcTalk(){
 
-  let lines=[];
+ let lines=[];
 
-  if(n.memory.length){
-    let e=n.memory[Math.floor(Math.random()*n.memory.length)];
-    lines.push(`I remember when ${e.desc} on day ${e.day}.`);
-  }
+ if(worldEvents.length){
+   let e=worldEvents[Math.floor(Math.random()*worldEvents.length)];
+   lines.push(`I've heard about ${e.desc}.`);
+ }
 
-  if(n.grudge>3) lines.push("I don’t trust you.");
-  if(n.trust>2) lines.push("You’ve proven yourself.");
+ let base=[
+   "Careful who you trust.",
+   "The world is changing.",
+   "Everyone's choosing sides.",
+   "These are dangerous times."
+ ];
 
-  lines.push("Things are changing.");
+ lines.push(base[Math.floor(Math.random()*base.length)]);
 
-  return lines[Math.floor(Math.random()*lines.length)];
+ return lines[Math.floor(Math.random()*lines.length)];
 }
 
 // ================= GOSSIP =================
-function gossipSystem(){
-
-  if(worldEvents.length>1 && Math.random()<0.3){
-    let e=worldEvents[Math.floor(Math.random()*worldEvents.length)];
-    narrate(`Someone whispers: "${e.desc}..."`);
-  }
+function gossip(){
+ if(worldEvents.length>1 && Math.random()<0.3){
+   let e=worldEvents[Math.floor(Math.random()*worldEvents.length)];
+   narrate(`A whisper: "${e.desc}..."`);
+ }
 }
 
-// ================= START =================
+// ================= START TEXT =================
 narrate("Welcome to the Realm of Milamber.");
 updateStats();
 
 </script>
-</body>
-</html>
 
-
-
+ 
