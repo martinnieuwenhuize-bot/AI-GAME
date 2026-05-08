@@ -65,7 +65,37 @@ function loadGame(s){
 }
 
 // ===== NEW GAME =====
-function newGame(s){
+function newGame(){
+  // ✅ HIDE TITLE SCREEN
+  document.getElementById("title").classList.add("hidden");
+
+  // ✅ SHOW GAME UI
+  document.getElementById("game").classList.remove("hidden");
+
+  // ✅ INIT PLAYER
+  player={
+    life:100,maxLife:100,
+    will:100,maxWill:100,
+    gold:30,
+    chapter:1,
+    location:"Rift Edge",
+    faction:{Isles:0,Tsurani:0},
+    inventory:[],
+    quests:[]
+  };
+
+  // ✅ STARTER QUEST
+  addQuest(
+    "The Rift Opens","Main",
+    "Investigate the Rift tearing the sky.",
+    ["Travel to the Rift Edge","Choose a faction","Survive the war's beginning"],
+    {gold:30}
+  );
+
+  story("📖 Chapter I: The Rift Opens");
+  showMap();
+  hud();
+}
   slot=s;
   player={
     life:100,maxLife:100,
