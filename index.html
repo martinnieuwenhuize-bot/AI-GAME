@@ -1,357 +1,470 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Realm of Milamber</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Magician: Milamber</title>
+<link href="https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
 <style>
-body {
-  margin:0;
-  font-family:serif;
-  color:#e8dcc8;
-  background:
-    linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.9)),
-    url("https://image.pollinations.ai/prompt/dragon%20on%20castle%20wall%20dark%20fantasy");
-  background-size:cover;
-}
-#app {max-width:600px;margin:auto;height:100vh;display:flex;flex-direction:column;}
-#title,#game {flex:1;display:flex;flex-direction:column;padding:20px;}
-#title {justify-content:center;align-items:center;text-align:center;}
-#game {display:none;}
-#story {flex:1;overflow-y:auto;}
-input,button {
-  padding:10px;margin-top:5px;background:#1a1410;color:white;border:1px solid #2e2318;
-}
-.choice {display:block;width:100%;background:#2a1e10;margin-top:4px;}
-</style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --bg: #080a0f;
+  --surface: #0d1018;
+  --card: #111520;
+  --border: #1e2535;
+  --border2: #2a3548;
+  --rift: #3a1f6e;
+  --rift2: #6b3fc4;
+  --rift3: #9b6fff;
+  --gold: #c8a84b;
+  --gold2: #e8cc7a;
+  --tsurani: #8b2020;
+  --tsurani2: #c0392b;
+  --midkemia: #2a5a3a;
+  --midkemia2: #4a9a6a;
+  --text: #d4cfc8;
+  --muted: #6a7080;
+  --dim: #3a4050;
+}
+
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'IM Fell English', serif; overflow: hidden;
+}
+
+/* Rift shimmer background */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 15% 30%, rgba(58,31,110,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 70%, rgba(107,63,196,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 10%, rgba(200,168,75,0.04) 0%, transparent 40%);
+  animation: rifPulse 8s ease-in-out infinite alternate;
+}
+@keyframes rifPulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+/* Rift particles */
+.mote {
+  position: fixed; border-radius: 50%; pointer-events: none; z-index: 1;
+  animation: moteDrift linear infinite; opacity: 0;
+}
+@keyframes moteDrift {
+  0% { transform: translateY(100vh) translateX(0) scale(0.5); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 0.6; }
+  100% { transform: translateY(-30px) translateX(var(--dx)) scale(1.2); opacity: 0; }
+}
+
+#app {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column;
+  height: 100dvh; max-width: 500px; margin: 0 auto;
+}
+
+/* ══ TITLE SCREEN ══ */
+#title-screen {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 28px 20px 36px; text-align: center;
+}
+#title-screen::-webkit-scrollbar { width: 2px; }
+#title-screen::-webkit-scrollbar-thumb { background: var(--rift); }
+
+.rift-sigil {
+  font-size: 44px; margin-bottom: 10px; line-height: 1;
+  filter: drop-shadow(0 0 16px rgba(107,63,196,0.8));
+  animation: sigilPulse 4s ease-in-out infinite alternate;
+}
+@keyframes sigilPulse {
+  from { filter: drop-shadow(0 0 8px rgba(107,63,196,0.5)); transform: scale(1); }
+  to { filter: drop-shadow(0 0 28px rgba(155,111,255,0.9)); transform: scale(1.05); }
+}
+
+.game-title {
+  font-family: 'Uncial Antiqua', serif; font-size: 30px;
+  color: var(--gold2); letter-spacing: 2px;
+  text-shadow: 0 0 30px rgba(200,168,75,0.4), 2px 2px 4px rgba(0,0,0,0.9);
+  line-height: 1.15; margin-bottom: 4px;
+}
+.game-subtitle {
+  font-family: 'IM Fell English', serif; font-size: 13px; color: var(--rift3);
+  font-style: italic; letter-spacing: 2px; margin-bottom: 16px;
+}
+
+.title-ornament {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px; width: 100%;
+  max-width: 320px;
+}
+.title-ornament span { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--rift2), transparent); }
+.title-ornament em { color: var(--gold); font-size: 14px; font-style: normal; }
+
+.title-blurb {
+  font-size: 14px; color: var(--muted); line-height: 1.8; margin-bottom: 24px;
+  font-style: italic; max-width: 340px;
+}
+.title-blurb strong { color: var(--text); font-style: normal; }
+
+/* Path selection instead of class */
+.section-label {
+  font-family: 'Uncial Antiqua', serif; font-size: 10px; color: var(--gold);
+  letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px;
+  display: block; text-align: left; width: 100%;
+}
+.char-input {
+  width: 100%; background: var(--card); border: 1px solid var(--border2);
+  border-radius: 5px; padding: 10px 13px; font-size: 15px; color: var(--text);
+  font-family: 'IM Fell English', serif; outline: none; margin-bottom: 16px;
+}
+.char-input:focus { border-color: var(--rift2); }
+.char-input::placeholder { color: var(--muted); font-style: italic; }
+
+.path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-bottom: 16px; }
+.path-card {
+  background: var(--card); border: 1px solid var(--border2); border-radius: 8px;
+  padding: 12px 9px; text-align: center; cursor: pointer;
+  transition: all .2s; -webkit-tap-highlight-color: transparent;
+  position: relative; overflow: hidden;
+}
+.path-card::before {
+  content: ''; position: absolute; inset: 0; opacity: 0;
+  transition: opacity .2s;
+}
+.path-card.lesser::before { background: radial-gradient(ellipse at center, rgba(42,90,58,0.3), transparent); }
+.path-card.greater::before { background: radial-gradient(ellipse at center, rgba(58,31,110,0.4), transparent); }
+.path-card.selected, .path-card:active { border-color: var(--rift2); }
+.path-card.selected::before { opacity: 1; }
+.path-icon { font-size: 22px; display: block; margin-bottom: 5px; position: relative; }
+.path-name { font-family: 'Uncial Antiqua', serif; font-size: 11px; color: var(--gold2); position: relative; }
+.path-desc { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.35; position: relative; font-style: italic; }
+.path-card.lesser .path-name { color: var(--midkemia2); }
+.path-card.greater .path-name { color: var(--rift3); }
+
+/* Origin cards */
+.origin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-bottom: 20px; }
+.origin-card {
+  background: var(--card); border: 1px solid var(--border2); border-radius: 8px;
+  padding: 10px 8px; text-align: center; cursor: pointer;
+  transition: all .2s; -webkit-tap-highlight-color: transparent;
+}
+.origin-card.selected, .origin-card:active { border-color: var(--gold); background: rgba(200,168,75,0.07); }
+.origin-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+.origin-name { font-family: 'Uncial Antiqua', serif; font-size: 10px; color: var(--gold); }
+.origin-desc { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.3; font-style: italic; }
+
+.begin-btn {
+  width: 100%; padding: 14px; border-radius: 7px;
+  border: 1px solid var(--rift2);
+  background: linear-gradient(135deg, rgba(58,31,110,0.35), rgba(58,31,110,0.1));
+  color: var(--rift3); font-family: 'Uncial Antiqua', serif; font-size: 14px;
+  letter-spacing: 2px; cursor: pointer;
+  transition: all .2s; -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 24px rgba(107,63,196,0.2), inset 0 0 20px rgba(107,63,196,0.05);
+}
+.begin-btn:active { transform: scale(.97); background: rgba(107,63,196,0.4); }
+
+/* ══ GAME SCREEN ══ */
+#game-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* HUD */
+#hud {
+  padding: 8px 12px; border-bottom: 1px solid var(--border2);
+  background: rgba(8,10,15,0.97); backdrop-filter: blur(12px);
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.hud-name {
+  font-family: 'Uncial Antiqua', serif; font-size: 12px; color: var(--gold2);
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stat-group { display: flex; align-items: center; gap: 4px; }
+.stat-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; width: 20px; font-family: 'Uncial Antiqua', serif; }
+.stat-bar { width: 50px; height: 5px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.stat-fill { height: 100%; border-radius: 2px; transition: width .5s ease; }
+.will-fill { background: linear-gradient(90deg, var(--rift), var(--rift2)); }
+.life-fill { background: linear-gradient(90deg, #2a5a3a, #4a9a6a); }
+.stat-num { font-size: 9px; color: var(--muted); min-width: 22px; }
+.gold-hud { font-size: 11px; color: var(--gold); margin-left: auto; white-space: nowrap; }
+
+/* Scene image */
+#scene-image-wrap {
+  flex-shrink: 0; position: relative; overflow: hidden;
+  max-height: 170px; background: #000;
+  border-bottom: 1px solid var(--border2); display: none;
+}
+#scene-image-wrap.visible { display: block; }
+#scene-image { width: 100%; display: block; opacity: 0; transition: opacity 1s ease; max-height: 170px; object-fit: cover; }
+#scene-image.loaded { opacity: 1; }
+.img-caption {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 6px 10px; font-size: 10px; font-style: italic; color: rgba(212,207,200,0.65);
+  background: linear-gradient(0deg, rgba(0,0,0,0.85), transparent);
+}
+
+/* Story */
+#story-area {
+  flex: 1; overflow-y: auto; padding: 14px 14px;
+  display: flex; flex-direction: column; gap: 13px;
+  scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+}
+#story-area::-webkit-scrollbar { width: 2px; }
+#story-area::-webkit-scrollbar-thumb { background: var(--rift); }
+
+.story-block {
+  animation: fadeUp .4s ease;
+  border-left: 2px solid var(--border2); padding-left: 13px;
+}
+.story-block.narrate { border-left-color: var(--gold); }
+.story-block.magic { border-left-color: var(--rift2); }
+.story-block.combat { border-left-color: var(--tsurani2); }
+.story-block.player { border-left-color: var(--midkemia2); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+.story-tag {
+  font-family: 'Uncial Antiqua', serif; font-size: 8px; letter-spacing: 2.5px;
+  text-transform: uppercase; margin-bottom: 5px; opacity: 0.8;
+}
+.narrate .story-tag { color: var(--gold); }
+.magic .story-tag { color: var(--rift3); }
+.combat .story-tag { color: var(--tsurani2); }
+.player .story-tag { color: var(--midkemia2); }
+
+.story-text { font-size: 15px; line-height: 1.8; color: var(--text); }
+.story-text em { color: var(--gold2); font-style: italic; }
+.story-text strong { color: #fff; font-style: normal; }
+.story-text .tsurani { color: var(--tsurani2); }
+.story-text .rift-word { color: var(--rift3); }
+
+/* Choices */
+#choices-area {
+  flex-shrink: 0; padding: 10px 12px 14px;
+  border-top: 1px solid var(--border2);
+  background: rgba(8,10,15,0.98); backdrop-filter: blur(12px);
+  display: flex; flex-direction: column; gap: 7px;
+}
+
+.choice-btn {
+  width: 100%; padding: 11px 13px; border-radius: 6px;
+  border: 1px solid var(--border2); background: var(--card);
+  color: var(--text); font-family: 'IM Fell English', serif; font-size: 14px;
+  text-align: left; cursor: pointer; transition: all .15s; line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+.choice-btn:active { border-color: var(--rift2); background: rgba(58,31,110,0.2); transform: scale(.98); }
+.choice-icon { margin-right: 7px; }
+
+.custom-row { display: flex; gap: 7px; margin-top: 2px; }
+.custom-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 9px 11px; font-size: 14px; color: var(--text);
+  font-family: 'IM Fell English', serif; outline: none;
+}
+.custom-input:focus { border-color: var(--rift2); }
+.custom-input::placeholder { color: var(--muted); font-style: italic; }
+.do-btn {
+  padding: 9px 13px; border-radius: 6px; border: 1px solid var(--rift2);
+  background: rgba(58,31,110,0.2); color: var(--rift3);
+  font-family: 'Uncial Antiqua', serif; font-size: 11px;
+  cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.do-btn:active { background: rgba(107,63,196,0.4); }
+
+/* Thinking */
+.thinking-wrap {
+  display: flex; align-items: center; gap: 10px; padding: 10px 13px;
+  border-left: 2px solid var(--rift2);
+}
+.rift-spin { font-size: 16px; animation: spin 2s linear infinite; filter: drop-shadow(0 0 6px rgba(107,63,196,0.7)); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.thinking-text { font-size: 13px; color: var(--muted); font-style: italic; }
+
+/* Inventory */
+#inv-btn {
+  position: fixed; bottom: 80px; right: 14px; z-index: 50;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--border2);
+  font-size: 17px; display: none; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  -webkit-tap-highlight-color: transparent;
+}
+#inv-overlay {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.88); backdrop-filter: blur(10px);
+  padding: 20px; align-items: center; justify-content: center;
+}
+#inv-overlay.open { display: flex; }
+.inv-box {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 18px; width: 100%; max-width: 360px;
+}
+.inv-title { font-family: 'Uncial Antiqua', serif; font-size: 15px; color: var(--gold2); margin-bottom: 12px; }
+.inv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.inv-item { background: var(--card); border: 1px solid var(--border2); border-radius: 6px; padding: 9px; }
+.item-icon { font-size: 18px; }
+.item-name { color: var(--gold2); font-size: 12px; margin-top: 2px; font-family: 'Uncial Antiqua', serif; }
+.item-desc { color: var(--muted); font-size: 10px; margin-top: 2px; font-style: italic; }
+.inv-close {
+  width: 100%; margin-top: 12px; padding: 10px; border-radius: 6px;
+  border: 1px solid var(--border2); background: transparent; color: var(--muted);
+  font-family: 'Uncial Antiqua', serif; font-size: 12px; cursor: pointer;
+}
+
+/* Path indicator badge */
+.path-badge {
+  display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 3px;
+  font-family: 'Uncial Antiqua', serif; letter-spacing: 1px; margin-left: 4px;
+  vertical-align: middle;
+}
+.badge-lesser { background: rgba(42,90,58,0.3); color: var(--midkemia2); border: 1px solid var(--midkemia); }
+.badge-greater { background: rgba(58,31,110,0.3); color: var(--rift3); border: 1px solid var(--rift2); }
+</style>
+</head>
 <body>
+
+<div id="motes"></div>
 
 <div id="app">
 
-<div id="title">
-<h1>Realm of Milamber</h1>
-<input id="name" placeholder="Your name">
-<button onclick="start()">Begin</button>
+  <!-- ══ TITLE / CHARACTER CREATION ══ -->
+  <div id="title-screen">
+
+    <div class="rift-sigil">⧖</div>
+    <h1 class="game-title">Magician</h1>
+    <p class="game-subtitle">The Tale of Milamber</p>
+
+    <div class="title-ornament">
+      <span></span><em>✦</em><span></span>
+    </div>
+
+    <p class="title-blurb">
+      You were <strong>Pug</strong>, a kitchen boy of Crydee. Now you are <strong>Milamber</strong>, a Great One of the Empire of Tsuranuanni. Two worlds hang in the balance. The Rift between them tears at the fabric of reality itself — and you stand at its heart.
+    </p>
+
+    <label class="section-label">Your Name</label>
+    <input class="char-input" id="char-name" type="text" placeholder="Pug, or another name..." maxlength="24">
+
+    <label class="section-label">Choose Your Path</label>
+    <div class="path-grid">
+      <div class="path-card lesser selected" onclick="selectPath(this,'Lesser','The Lesser Path — magic shaped by will and emotion, the way of most magicians of Midkemia. Reliable, structured, but limited in ultimate power.')" data-path="Lesser">
+        <span class="path-icon">🌿</span>
+        <div class="path-name">Lesser Path</div>
+        <div class="path-desc">Midkemian magic. Will-shaped, structured, dependable</div>
+      </div>
+      <div class="path-card greater" onclick="selectPath(this,'Greater','The Greater Path — magic drawn from a deeper source, as the Great Ones of Kelewan practice. Vast, raw, transformative. You must learn to let the power flow through you rather than forcing it.')" data-path="Greater">
+        <span class="path-icon">⚡</span>
+        <div class="path-name">Greater Path</div>
+        <div class="path-desc">Tsurani Great One magic. Vast, raw, world-shaking</div>
+      </div>
+    </div>
+
+    <label class="section-label">Your Origin</label>
+    <div class="origin-grid">
+      <div class="origin-card selected" onclick="selectOrigin(this,'Crydee','A boy of Crydee, raised in Duke Borric\'s castle kitchens. You know loyalty, duty, and the cold winds off the Grey Towers.')" data-origin="Crydee">
+        <span class="origin-icon">🏰</span>
+        <div class="origin-name">Crydee</div>
+        <div class="origin-desc">Kitchen boy of the western frontier</div>
+      </div>
+      <div class="origin-card" onclick="selectOrigin(this,'Stardock','Trained briefly at Kulgan\'s side before the war upended everything. Some theoretical grounding, but the Rift changed all that.')" data-origin="Stardock">
+        <span class="origin-icon">📚</span>
+        <div class="origin-name">Kulgan\'s Student</div>
+        <div class="origin-desc">Touched by theory before war intervened</div>
+      </div>
+      <div class="origin-card" onclick="selectOrigin(this,'Kelewan','You remember little of Midkemia. The Assembly of Magicians on Kelewan is all you have known for years. You are Milamber first.')" data-origin="Kelewan">
+        <span class="origin-icon">🏛️</span>
+        <div class="origin-name">Kelewan-Raised</div>
+        <div class="origin-desc">Shaped entirely by Tsurani culture</div>
+      </div>
+      <div class="origin-card" onclick="selectOrigin(this,'Riftwalker','You have walked the Rift itself. Between worlds. That journey left marks on your mind — and your power — that no one fully understands.')" data-origin="Riftwalker">
+        <span class="origin-icon">⧖</span>
+        <div class="origin-name">Riftwalker</div>
+        <div class="origin-desc">Forged between worlds, belonging to neither</div>
+      </div>
+    </div>
+
+    <button class="begin-btn" onclick="beginAdventure()">✦ Enter the Rift ✦</button>
+
+  </div>
+
+  <!-- ══ GAME SCREEN ══ -->
+  <div id="game-screen">
+
+    <div id="hud">
+      <div class="hud-name" id="hud-name">Milamber</div>
+      <div class="stat-group">
+        <div class="stat-label">Will</div>
+        <div class="stat-bar"><div class="stat-fill will-fill" id="will-bar" style="width:100%"></div></div>
+        <div class="stat-num" id="will-num">100</div>
+      </div>
+      <div class="stat-group">
+        <div class="stat-label">Life</div>
+        <div class="stat-bar"><div class="stat-fill life-fill" id="life-bar" style="width:100%"></div></div>
+        <div class="stat-num" id="life-num">100</div>
+      </div>
+      <div class="gold-hud">🪙 <span id="gold-num">0</span></div>
+    </div>
+
+    <div id="scene-image-wrap">
+      <img id="scene-image" alt="scene">
+      <div class="img-caption" id="img-caption"></div>
+    </div>
+
+    <div id="story-area"></div>
+
+    <div id="choices-area">
+      <div class="custom-row">
+        <input class="custom-input" id="custom-action" placeholder="Speak your will..." maxlength="200"
+          onkeydown="if(event.key==='Enter')doCustomAction()">
+        <button class="do-btn" onclick="doCustomAction()">Do It</button>
+      </div>
+    </div>
+
+  </div>
 </div>
 
-<div id="game">
-<div id="story"></div>
-
-<input id="input" placeholder="Type anything..."
-onkeydown="if(event.key==='Enter')act()">
-<button onclick="act()">Do</button>
-
-<div id="choices"></div>
-<div id="stats"></div>
-</div>
-
+<div id="inv-btn" onclick="toggleInventory()">📜</div>
+<div id="inv-overlay" onclick="if(event.target===this)toggleInventory()">
+  <div class="inv-box">
+    <div class="inv-title">📜 Possessions & Lore</div>
+    <div class="inv-grid" id="inv-grid"></div>
+    <button class="inv-close" onclick="toggleInventory()">Close</button>
+  </div>
 </div>
 
 <script>
-
-// ================= PLAYER =================
-let player = { name:"", reputation:0, location:"tavern", room:"bar" };
-
-// ================= TIME =================
-let time=0, day=1;
-let phases=["Morning","Day","Evening","Night"];
-
-// ================= WEATHER =================
-let weather="Clear";
-let weatherTypes=["Clear","Rain","Storm"];
-
-// ================= PLAYSTYLE =================
-let playstyle={violent:0,stealth:0,heroic:0};
-
-// ================= FACTIONS =================
-let factions={
-  law:{name:"Guards",power:5,allies:["civil"],enemies:["shady"],opinion:0},
-  shady:{name:"Criminals",power:5,allies:[],enemies:["law"],opinion:0},
-  civil:{name:"Townfolk",power:5,allies:["law"],enemies:[],opinion:0}
-};
-
-// ================= AREAS =================
-let areas={
-  tavern:{control:"civil"},
-  street:{control:"law"},
-  forest:{control:"shady"}
-};
-
-// ================= WORLD =================
-let world={
-  tavern:{
-    bar:{desc:"a crowded tavern bar filled with murmurs",npcs:["borin","guard"]},
-    backroom:{desc:"a shadowy room where whispers linger",npcs:["shady"]},
-    upstairs:{desc:"a creaking upper hallway",npcs:[]}
-  },
-  town:{ street:{desc:"a muddy street",npcs:["guard"]}},
-  forest:{ clearing:{desc:"a silent forest clearing",npcs:["shady"]}}
-};
-
-// ================= NPCS =================
-let npcs={
-  borin:{name:"Borin",faction:"civil",trust:0,loyalty:0,grudge:0,emotion:"neutral",memory:[]},
-  shady:{name:"Unknown Man",faction:"shady",trust:0,loyalty:0,grudge:0,emotion:"paranoid",memory:[]},
-  guard:{name:"Guard",faction:"law",trust:0,loyalty:0,grudge:0,emotion:"strict",memory:[]}
-};
-
-// ================= EVENTS =================
-let worldEvents=[];
-
-// ================= UI =================
-function narrate(text){
- let d=document.createElement("div");
- d.textContent=text;
- document.getElementById("story").appendChild(d);
- d.scrollIntoView();
+// ── MOTE PARTICLES ──
+const moteContainer = document.getElementById('motes');
+const moteColors = ['rgba(107,63,196,0.8)','rgba(155,111,255,0.6)','rgba(200,168,75,0.5)','rgba(58,31,110,0.9)'];
+for (let i = 0; i < 22; i++) {
+  const m = document.createElement('div');
+  m.className = 'mote';
+  const size = 1 + Math.random() * 2.5;
+  m.style.cssText = `
+    left:${Math.random()*100}%;
+    width:${size}px; height:${size}px;
+    background:${moteColors[Math.floor(Math.random()*moteColors.length)]};
+    animation-duration:${8+Math.random()*14}s;
+    animation-delay:${Math.random()*10}s;
+    --dx:${(Math.random()-0.5)*80}px;
+  `;
+  moteContainer.appendChild(m);
 }
 
-function updateStats(){
- document.getElementById("stats").textContent =
- `Day ${day} ${phases[time%4]} | Weather:${weather} | Reputation:${player.reputation} | Control:${areas[player.location].control}`;
-}
-
-// ================= START =================
-function start(){
- player.name=document.getElementById("name").value||"Wanderer";
- document.getElementById("title").style.display="none";
- document.getElementById("game").style.display="flex";
-
- narrate(`You are ${player.name}. The world of Milamber stirs...`);
- updateStats();
-}
-
-// ================= INPUT =================
-function act(){
- let inputBox=document.getElementById("input");
- let text=inputBox.value.toLowerCase();
- inputBox.value="";
- if(!text) return;
-
- narrate("> "+text);
-
- advanceTime();
- process(text);
-}
-
-// ================= TIME =================
-function advanceTime(){
- time++;
- if(time%4===0) day++;
-
- if(Math.random()<0.3){
-   weather=weatherTypes[Math.floor(Math.random()*3)];
-   narrate("Weather shifts to "+weather);
- }
-
- factionWar();
- allianceShift();
- gossip();
-}
-
-// ================= FACTION WAR =================
-function factionWar(){
- if(Math.random()<0.3){
-   let keys=Object.keys(factions);
-   let a=keys[Math.floor(Math.random()*keys.length)];
-   let b=keys[Math.floor(Math.random()*keys.length)];
-
-   if(a!==b){
-     narrate(`${factions[a].name} clash violently with ${factions[b].name}!`);
-
-     let zone=Object.keys(areas)[Math.floor(Math.random()*3)];
-     areas[zone].control=a;
-
-     narrate(`${factions[a].name} seize the ${zone}.`);
-
-     recordEvent(`${a} captured ${zone}`);
-   }
- }
-}
-
-// ================= ALLIANCES =================
-function allianceShift(){
- if(Math.random()<0.2){
-   let keys=Object.keys(factions);
-   let a=keys[Math.floor(Math.random()*keys.length)];
-   let b=keys[Math.floor(Math.random()*keys.length)];
-
-   if(a!==b){
-     factions[a].allies.push(b);
-     narrate(`${factions[a].name} ally with ${factions[b].name}.`);
-   }
- }
-}
-
-// ================= PROCESS =================
-function process(text){
-
- // === PLAYSTYLE ===
- if(text.includes("attack")) playstyle.violent++;
- if(text.includes("help")) playstyle.heroic++;
- if(text.includes("sneak")) playstyle.stealth++;
-
- // === ACTIONS ===
- if(text.includes("attack")){
-   player.reputation--;
-   factionAdjust(-2,1,0);
-   updateNPCEmotion("angry");
-   recordEvent("you attacked someone");
- }
-
- if(text.includes("help")){
-   player.reputation++;
-   factionAdjust(1,0,2);
-   updateNPCEmotion("respect");
-   recordEvent("you helped someone");
- }
-
- // === MOVEMENT ===
- if(text.includes("bar")){player.location="tavern";player.room="bar";}
- if(text.includes("backroom")){player.location="tavern";player.room="backroom";}
- if(text.includes("upstairs")){player.location="tavern";player.room="upstairs";}
- if(text.includes("street")){player.location="town";player.room="street";}
- if(text.includes("forest")){player.location="forest";player.room="clearing";}
-
- // === TALK ===
- if(text.includes("talk")){
-   dialogueMenu();
- }
-
- groupReaction(text);
-
- narrate(cinematic(text));
- updateStats();
-}
-
-// ================= FACTION ADJUST =================
-function factionAdjust(law,shady,civil){
- factions.law.opinion += law;
- factions.shady.opinion += shady;
- factions.civil.opinion += civil;
-}
-
-// ================= NPC EMOTION =================
-function updateNPCEmotion(e){
- Object.values(npcs).forEach(n=>n.emotion=e);
-}
-
-// ================= GROUP REACTION =================
-function groupReaction(text){
- let room = world[player.location][player.room];
- if(!room || room.npcs.length<2) return;
-
- let a=npcs[room.npcs[0]];
- let b=npcs[room.npcs[1]];
-
- narrate(`${a.name} glances at ${b.name}.`);
-
- if(text.includes("attack") && a.faction==="law"){
-   narrate(`${a.name}: "Stand down!"`);
- }
-}
-
-// ================= CINEMATIC =================
-function cinematic(text){
-
- let style=getStyle();
-
- let tone={
-   violent:"Your presence feels dangerous.",
-   stealth:"You move almost unnoticed.",
-   heroic:"You carry a calm confidence.",
-   neutral:""
- }[style];
-
- let control=areas[player.location].control;
-
- let areaTone={
-   law:"Order dominates here.",
-   shady:"Danger lingers.",
-   civil:"People tread carefully."
- }[control];
-
- return `${tone}
-${areaTone}
-The world shifts subtly around you.`;
-}
-
-// ================= STYLE =================
-function getStyle(){
- let m=Math.max(playstyle.violent,playstyle.stealth,playstyle.heroic);
- if(m===playstyle.violent)return"violent";
- if(m===playstyle.stealth)return"stealth";
- if(m===playstyle.heroic)return"heroic";
- return"neutral";
-}
-
-// ================= EVENT MEMORY =================
-function recordEvent(desc){
- let e={desc,day,time:phases[time%4],weather};
- worldEvents.push(e);
- Object.values(npcs).forEach(n=>n.memory.push(e));
-}
-
-// ================= DIALOGUE =================
-function dialogueMenu(){
- let box=document.getElementById("choices");
- box.innerHTML="";
-
- ["Polite","Ask","Boast","Threat"].forEach(o=>{
-   let b=document.createElement("button");
-   b.textContent=o;
-   b.className="choice";
-   b.onclick=()=>dialogue(o.toLowerCase());
-   box.appendChild(b);
- });
-}
-
-function dialogue(type){
- document.getElementById("choices").innerHTML="";
-
- if(type==="threat"){
-   player.reputation--;
-   narrate("You threaten them.");
- }
-
- narrate("Borin: "+npcTalk());
-}
-
-// ================= NPC TALK =================
-function npcTalk(){
-
- let lines=[];
-
- if(worldEvents.length){
-   let e=worldEvents[Math.floor(Math.random()*worldEvents.length)];
-   lines.push(`I've heard about ${e.desc}.`);
- }
-
- let base=[
-   "Careful who you trust.",
-   "The world is changing.",
-   "Everyone's choosing sides.",
-   "These are dangerous times."
- ];
-
- lines.push(base[Math.floor(Math.random()*base.length)]);
-
- return lines[Math.floor(Math.random()*lines.length)];
-}
-
-// ================= GOSSIP =================
-function gossip(){
- if(worldEvents.length>1 && Math.random()<0.3){
-   let e=worldEvents[Math.floor(Math.random()*worldEvents.length)];
-   narrate(`A whisper: "${e.desc}..."`);
- }
-}
-
-// ================= START TEXT =================
-narrate("Welcome to the Realm of Milamber.");
-updateStats();
-
-</script>
+// ── GAME STATE ──
+let player = {
+  name: 'Milamber',
+  path: 'Lesser',
+  pathDesc: '',
+  origin: 'Crydee',
+  originDesc: '',
+  will: 100, maxWill: 100,   // mana / magical stamina
+  life: 100, maxLife: 100,   // health
+  gold: 0,
+  inventory: [
+    { name: 'Kulgan\'s Letter', desc: 'A letter of introduction, worn at the edges', icon
+   
 
  
