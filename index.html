@@ -31,11 +31,13 @@ button{background:#1a1410;border:1px solid #2e2318;color:#fff;}
   <input id="name" placeholder="Name">
   <input id="appearance" placeholder="Describe yourself">
 
-  <h3>Class</h3>
-  <button onclick="setClass('Fighter')">Fighter</button>
-  <button onclick="setClass('Rogue')">Rogue</button>
-  <button onclick="setClass('Mage')">Mage</button>
-  <button onclick="setClass('Cleric')">Cleric</button>
+<h3>Class</h3>
+<div id="class-select">
+  <button onclick="selectClass(this,'Fighter')">Fighter ⚔️</button>
+  <button onclick="selectClass(this,'Rogue')">Rogue 🗡️</button>
+  <button onclick="selectClass(this,'Mage')">Mage 🔮</button>
+  <button onclick="selectClass(this,'Cleric')">Cleric ✝️</button>
+</div>
 
   <button onclick="start()">Begin</button>
   <button onclick="loadGame()">Load</button>
