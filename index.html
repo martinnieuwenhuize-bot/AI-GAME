@@ -14,7 +14,6 @@ body {
 
 h2 { color: gold; text-align:center; }
 
-/* HUD */
 #hud {
   border:1px solid #444;
   padding:8px;
@@ -34,7 +33,6 @@ h2 { color: gold; text-align:center; }
 .life { background:linear-gradient(green,lime); }
 .will { background:linear-gradient(purple,violet); }
 
-/* UI */
 button {
   width: 100%;
   padding: 12px;
@@ -67,6 +65,7 @@ input {
 
 <script>
 
+// ===== PLAYER =====
 let player = {
   life: 100,
   maxLife:100,
@@ -83,14 +82,14 @@ let combat = null;
 function updateHUD() {
   document.getElementById("hud").innerHTML = `
     ❤️ ${player.life}/${player.maxLife}
-    <div class="bar"><div class="fill life" style="width:${player.life}%"></div></div>
-    
+    <div class="bar"><div class="fill life" style="width:${(player.life/player.maxLife)*100}%"></div></div>
+
     ✦ ${player.will}/${player.maxWill}
-    <div class="bar"><div class="fill will" style="width:${player.will}%"></div></div>
-    
+    <div class="bar"><div class="fill will" style="width:${(player.will/player.maxWill)*100}%"></div></div>
+
     🪙 ${player.gold} | Lv ${player.level}
-    
-    ${combat ? `<br>⚔ Enemy: ${combat.name} (${combat.hp} HP)` : ""}
+
+    ${combat ? `<br>⚔ ${combat.name} (${combat.hp} HP)` : ""}
   `;
 }
 
@@ -111,11 +110,13 @@ function addStory(text) {
   document.getElementById("story").scrollTop = 99999;
 }
 
-// ===== STORY ENGINE (LESS RANDOM) =====
+// ===== STORY ENGINE =====
 const storyBeats = [
   "The Rift pulses violently.",
-  "You sense unseen forces watching.",
-  "A distant horn echoes across the land."
+  "You feel unseen eyes watching you.",
+  "Wind howls through the broken air.",
+  "Reality flickers for a moment.",
+  "A strange silence falls over the land."
 ];
 
 function generateStory(action){
@@ -132,7 +133,7 @@ function generateStory(action){
 function handleInput(input) {
   addStory("> " + input);
 
-  if(combat) return;
+  if (combat) return;
 
   const data = generateStory(input);
   process(data);
@@ -141,11 +142,12 @@ function handleInput(input) {
 function process(d){
   addStory(d.narrative);
 
-  if(d.enemy) {
+  if(d.enemy){
     startCombat(d.enemy, 40 + player.level * 5);
+  } else {
+    renderChoices(d.choices);
   }
 
-  renderChoices(d.choices);
   updateHUD();
 }
 
@@ -222,20 +224,21 @@ function enemyTurn(){
   player.life-=dmg;
 
   addStory("Enemy hits for "+dmg);
-}function checkCombat(){
-  if (combat.hp <= 0) {
+}
+
+function checkCombat(){
+  if(combat.hp <= 0){
     addStory("Enemy defeated!");
 
     player.gold += 10;
     player.level++;
 
-    if (Math.random() > 0.5) unlockSpell();
+    if(Math.random()>0.5) unlockSpell();
 
-    combat = null;
+    combat=null;
 
     updateHUD();
 
-    // ✅ PROPERLY RETURN TO STORY
     renderChoices([
       "Advance",
       "Search the area",
@@ -245,23 +248,10 @@ function enemyTurn(){
   } else {
     enemyTurn();
     updateHUD();
+
+    // keep combat buttons visible
+    renderCombat();
   }
-}
-
-
-
-    player.gold += 10;
-    player.level++;
-
-    if(Math.random()>0.5) unlockSpell();
-
-    combat=null;
-    renderChoices(["Continue"]);
-  } else {
-    enemyTurn();
-  }
-
-  updateHUD();
 }
 
 // ===== SPELLS =====
@@ -273,7 +263,7 @@ function unlockSpell(){
 
   const s = pool[Math.floor(Math.random()*pool.length)];
   player.spells.push(s);
-  addStory("You learned " + s.name);
+  addStory("✨ You learned " + s.name);
 }
 
 // ===== SAVE =====
