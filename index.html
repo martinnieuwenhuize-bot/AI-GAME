@@ -2,11 +2,10 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Rift RPG Ultimate+</title>
+<title>Rift RPG – Stable Build</title>
 
 <style>
-body{
+body {
   background:#07090f;
   color:#ddd;
   font-family:serif;
@@ -14,49 +13,45 @@ body{
   padding:10px;
 }
 
-h2{text-align:center;color:#eccc68;}
+h2 { text-align:center; color:#eccc68; }
 
-#hud{border-bottom:1px solid #333;padding-bottom:10px;}
-
-.bar{height:8px;background:#111;margin:5px 0;}
-.fill{height:100%;transition:.4s;}
-
-.life{background:#2ed573;}
-.will{background:#a55eea;}
-.xp{background:#ffa502;}
-
-.choice{
+.choice {
   width:100%;
   padding:12px;
-  margin:5px 0;
+  margin:6px 0;
   background:#121520;
-  color:#ccc;
   border:1px solid #333;
+  color:#ddd;
 }
 
-.glow{
-  box-shadow:0 0 12px #a55eea;
+.glow {
+  box-shadow:0 0 15px #a55eea;
+  animation:pulse 1.5s infinite;
 }
 
-#story div{opacity:0;transition:.5s;}
+@keyframes pulse {
+  0%{box-shadow:0 0 5px #a55eea}
+  50%{box-shadow:0 0 20px #a55eea}
+  100%{box-shadow:0 0 5px #a55eea}
+}
 
-#inventory{
+#story div { opacity:0; transition:.4s; }
+
+#inventory {
   position:fixed;
   inset:0;
   background:#000d;
-  display:none;
+  display:none; /* ✅ START CLOSED */
   justify-content:center;
   align-items:center;
 }
 
-.inv-box{
+.inv-box {
   background:#111;
   padding:15px;
   width:90%;
-  max-width:300px;
+  max-width:320px;
 }
-
-#map button{margin-top:5px;}
 </style>
 </head>
 
@@ -64,55 +59,36 @@ h2{text-align:center;color:#eccc68;}
 
 <h2>⚔ Rift RPG</h2>
 
-<div id="hud"></div>
 <div id="story"></div>
 <div id="choices"></div>
 <div id="map"></div>
 
-<button onclick="toggleInventory()">📦 Inventory</button>
+<button class="choice" onclick="toggleInventory()">📦 Inventory</button>
 
 <div id="inventory">
   <div class="inv-box">
     <h3>Inventory</h3>
-    <div id="inv-list"></div>
-    <button onclick="toggleInventory()">Close</button>
+    <div id="invList"></div>
+    <button class="choice" onclick="toggleInventory()">Close</button>
   </div>
 </div>
 
 <script>
-
 // ===== PLAYER =====
-let player={
-  life:100,maxLife:100,
-  will:100,maxWill:100,
-  xp:0,level:1,gold:0,
+let player = {
+  life:100,
+  will:100,
+  gold:0,
   location:"Rift Edge",
-  spells:[{name:"Spark",d:10,c:5}],
   inventory:["Old Cloak"]
 };
 
-let combat=null;
-
-// ===== HUD =====
-function hud(){
-  document.getElementById("hud").innerHTML=\`
-❤️ \${player.life}
-<div class="bar"><div class="fill life" style="width:\${player.life}%"></div></div>
-
-✦ \${player.will}
-<div class="bar"><div class="fill will" style="width:\${player.will}%"></div></div>
-
-⭐ \${player.xp}/100
-<div class="bar"><div class="fill xp" style="width:\${player.xp}%"></div></div>
-
-🪙 \${player.gold} | Lv \${player.level} | 📍 \${player.location}
-\`;
-}
+let combat = false;
 
 // ===== STORY =====
-function story(t){
+function story(text){
   let d=document.createElement("div");
-  d.textContent=t;
+  d.textContent=text;
   document.getElementById("story").appendChild(d);
   setTimeout(()=>d.style.opacity=1,10);
 }
@@ -120,167 +96,92 @@ function story(t){
 // ===== INVENTORY =====
 function toggleInventory(){
   const inv=document.getElementById("inventory");
-  inv.style.display=inv.style.display==="flex"?"none":"flex";
+  inv.style.display = inv.style.display==="flex" ? "none" : "flex";
+  renderInventory();
+}
 
-  document.getElementById("inv-list").innerHTML=
-    player.inventory.map(i=>"• "+i).join("<br>");
+function renderInventory(){
+  document.getElementById("invList").innerHTML =
+    player.inventory.map(i=>"• "+i).join("<br>") || "Empty";
+}
+
+// ===== START FLOW =====
+function startIntro(){
+  story("Darkness surrounds you...");
+  setTimeout(()=>story("A Rift tears open before your eyes."),800);
+  setTimeout(()=>story("Your fate waits."),1600);
+
+  setTimeout(()=>{
+    showContinue();
+  },2400);
+}
+
+function showContinue(){
+  const c=document.getElementById("choices");
+  c.innerHTML="";
+
+  let b=document.createElement("button");
+  b.className="choice glow";
+  b.textContent="✦ Continue ✦";
+  b.onclick=startGame;
+  c.appendChild(b);
+}
+
+// ===== GAME START =====
+function startGame(){
+  story("You step forward into the unknown.");
+  document.getElementById("choices").innerHTML="";
+  showMap();
 }
 
 // ===== MAP =====
 function showMap(){
-  if(combat) return;
-
-  document.getElementById("map").innerHTML=\`
-  <button class="choice" onclick="travel('Rift Edge')">Rift Edge</button>
-  <button class="choice" onclick="travel('War Camp')">War Camp</button>
-  <button class="choice" onclick="travel('Ruins')">Ruins</button>
-  <button class="choice" onclick="travel('Forest')">Shadow Forest</button>
-  <button class="choice" onclick="travel('City')">Broken City</button>
-  \`;
+  const m=document.getElementById("map");
+  m.innerHTML = `
+    <button class="choice" onclick="travel('Rift Edge')">Rift Edge</button>
+    <button class="choice" onclick="travel('War Camp')">War Camp</button>
+    <button class="choice" onclick="travel('Ruins')">Ancient Ruins</button>
+  `;
 }
 
 // ===== TRAVEL =====
 function travel(loc){
   player.location=loc;
-  story("You travel to "+loc);
+  story("You arrive at " + loc + ".");
 
-  if(Math.random()>0.6){
-    npcEncounter();
-  } else if(Math.random()>0.5){
-    startCombat();
-  } else {
-    renderChoices(["Search","Rest"]);
-  }
-
-  hud();
-}
-
-// ===== NPC =====
-function npcEncounter(){
-  story("You encounter a mysterious figure...");
-
-  renderChoices([
-    "Talk",
-    "Ignore"
-  ]);
-}
-
-function npcTalk(){
-  story("NPC: The Rift grows unstable...");
-
-  if(Math.random()>0.5){
-    player.inventory.push("Strange Relic");
-    story("You received a relic!");
-  }
-
-  renderChoices(["Continue"]);
-}
-
-// ===== COMBAT =====
-function startCombat(){
-  let enemies=[
-    {name:"Warrior",hp:40,atk:8},
-    {name:"Mage",hp:30,atk:10}
-  ];
-  combat=enemies[Math.floor(Math.random()*enemies.length)];
-
-  story("⚔ "+combat.name+" appears!");
-  renderCombat();
-}
-
-function renderCombat(){
-  let c=document.getElementById("choices");
-  c.innerHTML="";
-
-  player.spells.forEach(s=>{
-    let b=document.createElement("button");
-    b.className="choice";
-    b.textContent=s.name;
-    b.onclick=()=>cast(s);
-    c.appendChild(b);
-  });
-
-  let atk=document.createElement("button");
-  atk.className="choice";
-  atk.textContent="Attack";
-  atk.onclick=attack;
-  c.appendChild(atk);
-}
-
-function attack(){
-  let dmg=Math.floor(Math.random()*10+5);
-  combat.hp-=dmg;
-  story("You hit "+dmg);
-  checkCombat();
-}
-
-function cast(s){
-  if(player.will<s.c){story("No will!");return;}
-  player.will-=s.c;
-  combat.hp-=s.d;
-  story("Spell hits "+s.d);
-  checkCombat();
-}
-
-function enemyTurn(){
-  player.life-=combat.atk;
-  story("Enemy hits "+combat.atk);
-}
-
-function checkCombat(){
-  if(combat.hp<=0){
-    story("Enemy defeated!");
-    player.gold+=10;
-    player.inventory.push("Loot");
-    combat=null;
-    showMap();
-  } else {
-    enemyTurn();
-    renderCombat();
-  }
-
-  hud();
+  document.getElementById("choices").innerHTML="";
+  document.getElementById("choices").appendChild(actionButton("Search"));
+  document.getElementById("choices").appendChild(actionButton("Rest"));
 }
 
 // ===== ACTIONS =====
-function renderChoices(arr){
-  let c=document.getElementById("choices");
-  c.innerHTML="";
-
-  arr.forEach(a=>{
-    let b=document.createElement("button");
-    b.className="choice";
-    b.textContent=a;
-    b.onclick=()=>action(a);
-    c.appendChild(b);
-  });
+function actionButton(text){
+  let b=document.createElement("button");
+  b.className="choice";
+  b.textContent=text;
+  b.onclick=()=>doAction(text);
+  return b;
 }
 
-function action(a){
+function doAction(a){
   if(a==="Search"){
     if(Math.random()>0.5){
-      player.gold+=5;
-      player.inventory.push("Herbs");
-      story("You found something useful.");
-    } else story("Nothing found.");
+      story("You find something useful.");
+      player.inventory.push("Scrap Relic");
+    } else {
+      story("You find nothing.");
+    }
   }
 
   if(a==="Rest"){
-    player.life+=10;
-    player.will+=10;
-    story("You recover.");
+    story("You take a moment to recover.");
+    player.life = Math.min(100, player.life+10);
+    player.will = Math.min(100, player.will+10);
   }
-
-  if(a==="Talk") npcTalk();
-
-  hud();
 }
 
-// ===== START =====
-story("You stand before the Rift.");
-hud();
-showMap();
-
+// ===== BOOT =====
+startIntro();
 </script>
 
 </body>
