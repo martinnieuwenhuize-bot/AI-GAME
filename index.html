@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,42 +21,15 @@ body {
   flex-direction:column;
 }
 
-#title-screen, #game-screen {
-  padding:20px;
-  flex:1;
-  display:flex;
-  flex-direction:column;
-}
+#title,#game { padding:20px; flex:1; display:flex; flex-direction:column; }
+#game{display:none;}
 
-#game-screen { display:none; }
+#story{flex:1; overflow-y:auto;}
+#choices{max-height:25vh; overflow-y:auto;}
 
-#story {
-  flex:1;
-  overflow-y:auto;
-  margin-bottom:10px;
-}
+button,input{padding:10px;margin-top:5px;}
+button{background:#1a1410;border:1px solid #2e2318;color:#fff;}
 
-#choices {
-  max-height:30vh;
-  overflow-y:auto;
-}
-
-input, button {
-  padding:10px;
-  margin-top:5px;
-  font-size:14px;
-}
-
-button {
-  background:#1a1410;
-  border:1px solid #2e2318;
-  color:#fff;
-  cursor:pointer;
-}
-
-button.selected {
-  border:1px solid #c9922a;
-}
 </style>
 </head>
 
@@ -64,210 +37,270 @@ button.selected {
 
 <div id="app">
 
-<!-- TITLE -->
-<div id="title-screen">
+<div id="title">
   <h1>Realm of Ash</h1>
 
-  <input id="name" placeholder="Your name">
-  <input id="appearance" placeholder="Describe how you look">
+  <input id="name" placeholder="Name">
+  <input id="appearance" placeholder="Describe yourself">
 
-  <h3>Choose Class</h3>
-  <div id="class-select">
-    <button onclick="selectClass(this,'Fighter')">Fighter ⚔️</button>
-    <button onclick="selectClass(this,'Cleric')">Cleric ✝️</button>
-    <button onclick="selectClass(this,'Rogue')">Rogue 🗡️</button>
-    <button onclick="selectClass(this,'Mage')">Mage 🔮</button>
-  </div>
+  <h3>Class</h3>
+  <button onclick="setClass('Fighter')">Fighter</button>
+  <button onclick="setClass('Rogue')">Rogue</button>
+  <button onclick="setClass('Mage')">Mage</button>
+  <button onclick="setClass('Cleric')">Cleric</button>
 
-  <button onclick="startGame()">Begin</button>
-  <button onclick="loadGame()">Load Save</button>
+  <button onclick="start()">Begin</button>
+  <button onclick="loadGame()">Load</button>
 </div>
 
-<!-- GAME -->
-<div id="game-screen">
+<div id="game">
   <div id="story"></div>
   <div id="choices"></div>
 
-  <input id="input" placeholder="Type anything..."
-    onkeydown="if(event.key==='Enter')doAction()">
-  <button onclick="doAction()">Do it</button>
+  <input id="input" placeholder="Type anything..." onkeydown="if(event.key==='Enter')act()">
+  <button onclick="act()">Do it</button>
 
-  <button onclick="saveGame()">💾 Save Game</button>
+  <button onclick="saveGame()">💾 Save</button>
+
+  <div id="stats"></div>
 </div>
 
 </div>
 
 <script>
 
+const API_URL = "https://YOUR-WORKER-URL.workers.dev";
+
 let player = {
   name:"Hero",
   class:"Fighter",
-  appearance:"an unknown figure",
+  appearance:"",
   hp:100,
-  mp:50
+  inventory:["Health Potion"],
+  reputation:{
+    good:0,
+    evil:0
+  }
 };
 
-let storyLog = [];
+let worldMemory = []; // IMPORTANT
+let history = [];
+let log = [];
+let enemy=null;
 
-// CLASS SELECT
-function selectClass(btn, cls) {
-  player.class = cls;
-  document.querySelectorAll("#class-select button")
-    .forEach(b => b.classList.remove("selected"));
-  btn.classList.add("selected");
+// ---------- UI ----------
+function logText(t){
+  log.push(t);
+  let d=document.createElement("div");
+  d.textContent=t;
+  let s=document.getElementById("story");
+  s.appendChild(d);
+  s.scrollTop=s.scrollHeight;
 }
 
-// START GAME
-function startGame(){
-  player.name = document.getElementById("name").value || "Hero";
-  player.appearance = document.getElementById("appearance").value || "an unremarkable figure";
+// ---------- CLASS ----------
+function setClass(c){ player.class=c; }
 
-  if(player.class==="Fighter"){ player.hp=120; player.mp=30; }
-  if(player.class==="Cleric"){ player.hp=100; player.mp=80; }
-  if(player.class==="Rogue"){ player.hp=90; player.mp=50; }
-  if(player.class==="Mage"){ player.hp=70; player.mp=120; }
+// ---------- START ----------
+function start(){
+  player.name=document.getElementById("name").value||"Hero";
+  player.appearance=document.getElementById("appearance").value||"unknown";
 
-  document.getElementById("title-screen").style.display="none";
-  document.getElementById("game-screen").style.display="flex";
+  document.getElementById("title").style.display="none";
+  document.getElementById("game").style.display="flex";
 
-  addStory(`You are ${player.name}, a ${player.class}, ${player.appearance}. The world burns.`);
-  suggestChoices(["look around","move forward","call out"]);
+  updateStats();
+
+  logText(`You are ${player.name}, a ${player.class}, ${player.appearance}.`);
+
+  suggest(["look around","move forward","call out"]);
 }
 
-// STORY DISPLAY
-function addStory(text){
-  const div=document.createElement("div");
-  div.textContent=text;
-
-  const area=document.getElementById("story");
-  area.appendChild(div);
-  area.scrollTop=area.scrollHeight;
-
-  storyLog.push(text);
+// ---------- STATS ----------
+function updateStats(){
+  document.getElementById("stats").textContent =
+    `HP:${player.hp} | Inv:${player.inventory.join(", ")} | Rep(G:${player.reputation.good}/E:${player.reputation.evil})`;
 }
 
-// CHOICES
-function suggestChoices(list){
-  const box=document.getElementById("choices");
-  box.innerHTML="";
+// ---------- ACTION ----------
+async function act(){
+  let i=document.getElementById("input");
+  let t=i.value.trim();
+  if(!t) return;
+  i.value="";
+  process(t);
+}
 
-  list.forEach(t=>{
-    const btn=document.createElement("button");
-    btn.textContent=t;
-    btn.onclick=()=>processAction(t);
-    box.appendChild(btn);
+async function process(action){
+
+  logText("> "+action);
+
+  // record memory keywords
+  trackMemory(action);
+
+  // combat
+  if(enemy){ combatTurn(action); return; }
+
+  history.push({role:"user",content:action});
+
+  const res=await fetch(API_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      message:action,
+      history,
+      player,
+      worldMemory
+    })
+  });
+
+  const data=await res.json();
+
+  history.push({role:"assistant",content:data.text});
+
+  let parsed=parseAI(data.text);
+
+  logText(parsed.story);
+  suggest(parsed.choices);
+
+  if(Math.random()<0.3) startCombat();
+}
+
+// ---------- MEMORY TRACKER ----------
+function trackMemory(action){
+
+  let lower=action.toLowerCase();
+
+  if(lower.includes("kill")){
+    player.reputation.evil++;
+    worldMemory.push("Player has killed someone");
+  }
+
+  if(lower.includes("save")||lower.includes("help")){
+    player.reputation.good++;
+    worldMemory.push("Player helped someone");
+  }
+
+  if(lower.includes("betray")){
+    player.reputation.evil+=2;
+    worldMemory.push("Player betrayed someone");
+  }
+
+  // limit memory size
+  if(worldMemory.length>20) worldMemory.shift();
+}
+
+// ---------- PARSE ----------
+function parseAI(text){
+  let lines=text.split("\n");
+  let story=[],choices=[];
+  lines.forEach(l=>{
+    if(l.trim().startsWith(">")) choices.push(l.replace(">","").trim());
+    else story.push(l);
+  });
+  return {story:story.join("\n"),choices:choices.length?choices:["continue"]};
+}
+
+// ---------- CHOICES ----------
+function suggest(arr){
+  let b=document.getElementById("choices");
+  b.innerHTML="";
+  arr.forEach(c=>{
+    let btn=document.createElement("button");
+    btn.textContent=c;
+    btn.onclick=()=>process(c);
+    b.appendChild(btn);
   });
 }
 
-// INPUT
-function doAction(){
-  const input=document.getElementById("input");
-  const text=input.value.trim();
-  if(!text) return;
-
-  input.value="";
-  processAction(text);
+// ---------- COMBAT ----------
+function startCombat(){
+  enemy={name:"Ash Beast",hp:30};
+  logText("⚔ A creature attacks!");
+  suggest(["attack","use potion","run"]);
 }
 
-// ACTION PROCESS
-function processAction(action){
-  addStory("> " + action);
+function combatTurn(a){
 
-  let response = generateResponse(action.toLowerCase());
-
-  addStory(response.text);
-  suggestChoices(response.choices);
-}
-
-// RESPONSE ENGINE
-function generateResponse(action){
-
-  let classBonus = "";
-  let appearanceBonus = "";
-
-  if(player.class==="Fighter") classBonus = " Your combat instincts sharpen.";
-  if(player.class==="Mage") classBonus = " Magic crackles faintly.";
-  if(player.class==="Rogue") classBonus = " You move like a shadow.";
-  if(player.class==="Cleric") classBonus = " A divine warmth lingers.";
-
-  if(Math.random() > 0.5){
-    appearanceBonus = ` Your look (${player.appearance}) draws attention.`;
+  if(a.includes("attack")){
+    let d=Math.floor(Math.random()*10)+5;
+    enemy.hp-=d;
+    logText("You deal "+d);
   }
 
-  if(action.includes("look")){
-    return {
-      text:"The land is silent and dead." + classBonus + appearanceBonus,
-      choices:["approach","hide","scan horizon"]
-    };
+  if(a.includes("potion")){
+    let i=player.inventory.indexOf("Health Potion");
+    if(i>-1){
+      player.hp+=20;
+      player.inventory.splice(i,1);
+      logText("Healed 20");
+    }else logText("No potion");
   }
 
-  if(action.includes("attack") || action.includes("fight")){
-    return {
-      text:"You strike with force." + classBonus,
-      choices:["attack again","back off","dodge"]
-    };
-  }
-
-  if(action.includes("run")){
-    return {
-      text:"You run through ash and ruin." + appearanceBonus,
-      choices:["stop","keep running","hide"]
-    };
-  }
-
-  const random = [
-    "A distant scream echoes.",
-    "Shadows twist nearby.",
-    "The wind carries whispers.",
-    "You feel watched."
-  ];
-
-  return {
-    text: random[Math.floor(Math.random()*random.length)] + classBonus + appearanceBonus,
-    choices:["look around","move forward","stay still"]
-  };
-}
-
-// SAVE SYSTEM
-function saveGame(){
-  const saveData = {
-    player,
-    storyLog
-  };
-  localStorage.setItem("realmSave", JSON.stringify(saveData));
-  alert("Game Saved ✅");
-}
-
-// LOAD SYSTEM
-function loadGame(){
-  const save = localStorage.getItem("realmSave");
-  if(!save){
-    alert("No save found");
+  if(a.includes("run")){
+    logText("You escaped");
+    enemy=null;
+    suggest(["continue"]);
     return;
   }
 
-  const data = JSON.parse(save);
-  player = data.player;
-  storyLog = data.storyLog;
+  if(enemy.hp<=0){
+    logText("Enemy slain");
+    player.inventory.push("Loot");
+    enemy=null;
+    updateStats();
+    suggest(["continue","search"]);
+    return;
+  }
 
-  document.getElementById("title-screen").style.display="none";
-  document.getElementById("game-screen").style.display="flex";
+  let ed=Math.floor(Math.random()*8)+3;
+  player.hp-=ed;
+  logText("Enemy hits "+ed);
 
-  const storyArea = document.getElementById("story");
-  storyArea.innerHTML="";
+  if(player.hp<=0){
+    logText("💀 You died");
+    return;
+  }
 
-  storyLog.forEach(line=>{
-    const div=document.createElement("div");
-    div.textContent=line;
-    storyArea.appendChild(div);
+  updateStats();
+  suggest(["attack","use potion","run"]);
+}
+
+// ---------- SAVE ----------
+function saveGame(){
+  localStorage.setItem("realmSave",JSON.stringify({
+    player,history,log,worldMemory
+  }));
+  alert("Saved");
+}
+
+// ---------- LOAD ----------
+function loadGame(){
+  let s=localStorage.getItem("realmSave");
+  if(!s) return alert("No save");
+
+  let d=JSON.parse(s);
+  player=d.player;
+  history=d.history;
+  log=d.log;
+  worldMemory=d.worldMemory||[];
+
+  document.getElementById("title").style.display="none";
+  document.getElementById("game").style.display="flex";
+
+  let area=document.getElementById("story");
+  area.innerHTML="";
+  log.forEach(t=>{
+    let el=document.createElement("div");
+    el.textContent=t;
+    area.appendChild(el);
   });
 
-  suggestChoices(["continue","look around","move"]);
+  updateStats();
+  suggest(["continue"]);
 }
 
 </script>
 
 </body>
 </html>
-
- 
