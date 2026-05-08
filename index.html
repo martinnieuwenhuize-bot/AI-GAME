@@ -14,7 +14,6 @@ body{margin:0;background:#0c0906;color:#e8dcc8;font-family:serif;}
 input,button{padding:10px;margin-top:5px;}
 img{width:100%;border-radius:6px;margin-bottom:10px;}
 </style>
-</head>
 
 <body>
 
@@ -22,16 +21,13 @@ img{width:100%;border-radius:6px;margin-bottom:10px;}
 
 <div id="title">
 <h1>Realm of Ash</h1>
-
 <input id="name" placeholder="Name">
-<input id="appearance" placeholder="Describe yourself">
 <select id="class">
 <option>Fighter</option>
 <option>Mage</option>
 <option>Rogue</option>
 <option>Cleric</option>
 </select>
-
 <button onclick="start()">Begin</button>
 </div>
 
@@ -49,38 +45,66 @@ img{width:100%;border-radius:6px;margin-bottom:10px;}
 
 <script>
 
-// ---------- PLAYER ----------
+// ===== PLAYER =====
 let player={
 name:"",
 class:"",
 location:"town",
 hp:100,
+hunger:100,
+thirst:100,
 xp:0,
-rep:0
+rep:0,
+injuries:[],
+inventory:["water"]
 };
 
-// ---------- GLOBAL WORLD STATE ----------
+// ===== TIME =====
+let time=0;
+let phases=["Morning","Day","Evening","Night"];
+
+// ===== WEATHER =====
+let weather="Clear";
+
+// ===== WORLD =====
 let worldState={
 events:[],
-deadNPCs:[],
-townState:"normal" // normal, fearful, hostile, friendly
+townState:"normal"
 };
 
-// ---------- LOCATIONS ----------
+// ===== LOCATIONS =====
 let locations={
-town:{desc:"a small frontier town",npc:"borin",exits:["forest"]},
-forest:{desc:"a dark forest",npc:"hunter",exits:["town"]}
+town:{desc:"a guarded town",npc:"borin",exits:["forest"]},
+forest:{desc:"a dense forest",npc:"hunter",exits:["town"]}
 };
 
-// ---------- NPC ----------
+// ===== NPCS =====
 let npcs={
-borin:{mood:0,alive:true},
-hunter:{mood:0,alive:true}
+borin:{
+alive:true,
+affection:0,
+trust:0,
+jealousy:0,
+preferences:{
+likes:["help","kind","give"],
+dislikes:["threat","attack","steal"]
+}
+},
+hunter:{
+alive:true,
+affection:0,
+trust:0,
+jealousy:0,
+preferences:{
+likes:["attack","strength"],
+dislikes:["weak","beg"]
+}
+}
 };
 
 let enemy=null;
 
-// ---------- UI ----------
+// ===== UI =====
 function narrate(t){
 let d=document.createElement("div");
 d.textContent=t;
@@ -89,82 +113,181 @@ story.scrollTop=story.scrollHeight;
 }
 
 function showImg(){
-img.src=`https://image.pollinations.ai/prompt/${player.location} fantasy`;
+img.src=`https://image.pollinations.ai/prompt/${player.location} ${weather} fantasy`;
 }
 
-// ---------- START ----------
+// ===== START =====
 function start(){
 player.name=name.value||"Hero";
-player.class=document.getElementById("class").value;
-
 title.style.display="none";
 game.style.display="flex";
 
 showImg();
-narrate(`You are ${player.name}, a ${player.class}.`);
+narrate("Your journey begins.");
 
 updateStats();
 }
 
-// ---------- INPUT ----------
+// ===== INPUT =====
 function act(){
 let text=input.value.toLowerCase();
 input.value="";
+advanceTime();
 process(text);
 }
 
-// ---------- MAIN ----------
+// ===== TIME =====
+function advanceTime(){
+time++;
+decayNeeds();
+checkInjuries();
+randomEvents();
+relationshipEvents();
+}
+
+// ===== NEEDS =====
+function decayNeeds(){
+player.hunger-=5;
+player.thirst-=7;
+
+if(player.hunger<=0){
+player.hp-=5;
+narrate("You are starving...");
+}
+
+if(player.thirst<=0){
+player.hp-=7;
+narrate("You are dehydrated...");
+}
+}
+
+// ===== INJURY =====
+function checkInjuries(){
+
+if(player.injuries.includes("wound") && Math.random()<0.3){
+if(!player.injuries.includes("infection")){
+player.injuries.push("infection");
+narrate("Your wound festers.");
+}
+}
+
+if(player.injuries.includes("infection")){
+player.hp-=3;
+}
+}
+
+// ===== RANDOM EVENTS =====
+function randomEvents(){
+if(Math.random()<0.05){
+let keys=Object.keys(npcs);
+let victim=keys[Math.floor(Math.random()*keys.length)];
+
+if(npcs[victim].alive){
+npcs[victim].alive=false;
+narrate(`${victim} has died somewhere...`);
+}
+}
+}
+
+// ===== RELATIONSHIPS =====
+function updateRelationship(npcName, action){
+
+let npc=npcs[npcName];
+let text=action.toLowerCase();
+
+npc.preferences.likes.forEach(word=>{
+if(text.includes(word)){
+npc.affection+=2;
+npc.trust+=1;
+}
+});
+
+npc.preferences.dislikes.forEach(word=>{
+if(text.includes(word)){
+npc.affection-=2;
+npc.trust-=2;
+npc.jealousy+=1;
+}
+});
+
+if(text.includes("help")){
+npc.affection+=2;
+npc.trust+=2;
+}
+
+if(text.includes("attack")){
+npc.affection-=5;
+npc.trust-=5;
+npc.jealousy+=3;
+}
+
+npc.affection=Math.max(-10,Math.min(10,npc.affection));
+npc.trust=Math.max(-10,Math.min(10,npc.trust));
+npc.jealousy=Math.max(0,npc.jealousy);
+}
+
+function relationshipEvents(){
+Object.keys(npcs).forEach(name=>{
+let npc=npcs[name];
+if(npc.jealousy>7 && Math.random()<0.3){
+narrate(`${name} suddenly betrays you!`);
+startCombat(name);
+}
+});
+}
+
+// ===== MAIN =====
 function process(text){
 
 narrate("> "+text);
 
-if(enemy){combat(text); return;}
+if(enemy){combat(text);return;}
 
-trackWorldEvents(text);
 handleMovement(text);
+handleActions(text);
 handleNPC(text);
-updateWorldState();
+
+updateWorld();
 
 narrate(generateStory(text));
 
 updateStats();
 }
 
-// ---------- TRACK EVENTS ----------
-function trackWorldEvents(text){
-
-if(text.includes("kill")){
-worldState.events.push("violence");
-player.rep--;
-}
-
-if(text.includes("help")){
-worldState.events.push("kindness");
-player.rep++;
-}
-
-if(text.includes("threat")){
-worldState.events.push("threat");
-player.rep--;
-}
-
-}
-
-// ---------- MOVEMENT ----------
+// ===== MOVEMENT =====
 function handleMovement(text){
-
-let exits=locations[player.location].exits||[];
+let exits=locations[player.location].exits;
 exits.forEach(dest=>{
 if(text.includes(dest)){
 player.location=dest;
 showImg();
-narrate(`You travel to ${dest}.`);
+narrate(`You travel to ${dest}`);
 }
 });
-
 }
 
-// ---------- NPC ----------
+// ===== ACTIONS =====
+function handleActions(text){
+
+if(text.includes("eat")){
+player.hunger+=20;
+narrate("You eat.");
+}
+
+if(text.includes("drink")){
+if(player.inventory.includes("water")){
+player.thirst+=30;
+narrate("You drink.");
+}
+}
+
+if(text.includes("rest")){
+player.hp+=10;
+narrate("You rest.");
+}
+}
+
+// ===== NPC =====
 function handleNPC(text){
 
 let npcName=locations[player.location].npc;
@@ -172,71 +295,61 @@ if(!npcName) return;
 
 let npc=npcs[npcName];
 
-// NPC dead check
 if(!npc.alive){
-narrate(`${npcName} is gone. Permanently.`);
+narrate(`${npcName} is dead.`);
 return;
 }
 
-// talking
+updateRelationship(npcName,text);
+
 if(text.includes("talk")){
-let reaction=getNPCReaction(npc);
-narrate(`${npcName}: ${reaction}`);
+narrate(`${npcName}: ${getNPCReaction(npc)}`);
 }
 
-// attack
 if(text.includes("attack")){
 startCombat(npcName);
 }
-
-// kill
-if(text.includes("kill") && enemy){
-npc.alive=false;
-worldState.deadNPCs.push(npcName);
-narrate(`${npcName} is dead. This will be remembered.`);
 }
 
-}
-
-// ---------- NPC REACTIONS ----------
 function getNPCReaction(npc){
 
-if(player.rep>2) return "People here trust you.";
-if(player.rep<-2) return "They seem afraid of you.";
-
-switch(worldState.townState){
-case "hostile": return "They glare at you with hostility.";
-case "fearful": return "They seem nervous around you.";
-case "friendly": return "They greet you warmly.";
+if(npc.affection>5 && npc.trust>5){
+return "They smile warmly. They trust you.";
 }
 
-return "They watch you cautiously.";
+if(npc.trust>5){
+return "They nod. 'I trust you.'";
 }
 
-// ---------- WORLD EVOLUTION ----------
-function updateWorldState(){
+if(npc.jealousy>5){
+return "They look at you with resentment.";
+}
+
+if(npc.affection<-5){
+return "They clearly dislike you.";
+}
+
+return "They regard you cautiously.";
+}
+
+// ===== WORLD EVOLUTION =====
+function updateWorld(){
 
 let evil=worldState.events.filter(e=>e==="violence").length;
 let good=worldState.events.filter(e=>e==="kindness").length;
 
 if(evil>3){
 worldState.townState="hostile";
-locations.town.desc="a hostile town where guards track your movements";
+locations.town.desc="a hostile town where guards watch you";
 }
 
-else if(evil>1){
-worldState.townState="fearful";
-locations.town.desc="a nervous town where people whisper about you";
-}
-
-if(good>2){
+if(good>3){
 worldState.townState="friendly";
-locations.town.desc="a welcoming town where people trust you";
+locations.town.desc="a welcoming town";
+}
 }
 
-}
-
-// ---------- COMBAT ----------
+// ===== COMBAT =====
 function startCombat(name){
 enemy={name:name,hp:30};
 narrate(`⚔ ${name} attacks!`);
@@ -246,7 +359,13 @@ function combat(text){
 
 if(text.includes("attack")){
 enemy.hp-=10;
-narrate("You strike.");
+player.hp-=5;
+narrate("You trade blows.");
+
+if(Math.random()<0.3){
+player.injuries.push("wound");
+narrate("You are wounded.");
+}
 }
 
 if(text.includes("run")){
@@ -259,39 +378,27 @@ if(enemy.hp<=0){
 narrate(`${enemy.name} defeated.`);
 enemy=null;
 player.xp+=10;
-return;
+}
 }
 
-player.hp-=5;
-narrate(`${enemy.name} hits you.`);
-}
-
-// ---------- STORY ----------
+// ===== STORY =====
 function generateStory(text){
 
 let loc=locations[player.location];
 
-let worldHint="";
-
-if(worldState.townState==="hostile"){
-worldHint=" Everyone watches you closely.";
-}
-if(worldState.townState==="fearful"){
-worldHint=" People avoid your gaze.";
-}
-if(worldState.townState==="friendly"){
-worldHint=" People greet you warmly.";
+return `You ${text}. It is ${phases[time%4]}. Weather is ${weather}. You are in ${loc.desc}.`;
 }
 
-return `You ${text}. You are in ${loc.desc}.${worldHint}`;
-}
-
-// ---------- STATS ----------
+// ===== STATS =====
 function updateStats(){
 stats.textContent =
-`HP:${player.hp} XP:${player.xp} REP:${player.rep} STATE:${worldState.townState}`;
+`HP:${player.hp} Hunger:${player.hunger} Thirst:${player.thirst}
+XP:${player.xp} REP:${player.rep}
+Time:${phases[time%4]} Weather:${weather}
+Injuries:${player.injuries.join(", ")||"none"}`;
 }
 
 </script>
+
 </body>
 </html>
