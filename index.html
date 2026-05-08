@@ -58,7 +58,20 @@ let player;
 
 // ===== SAVE / LOAD =====
 function saveGame(){ localStorage.setItem("riftSave"+slot, JSON.stringify(player)); }
-function loadGame(s){
+function loadGame(){
+  let s=localStorage.getItem("riftCampaign");
+  if(!s) return alert("No save found");
+
+  player=JSON.parse(s);
+
+  // ✅ HIDE TITLE / SHOW GAME
+  document.getElementById("title").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+
+  story("📖 Chapter "+player.chapter+": Resumed");
+  showMap();
+  hud();
+}
   let data = localStorage.getItem("riftSave"+s);
   if(!data) return alert("No save in slot "+s);
   slot=s; player=JSON.parse(data); startCampaign();
